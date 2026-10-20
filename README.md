@@ -117,7 +117,45 @@ Campus Plus includes an unauthenticated, decoupled health check endpoint:
 
 ---
 
-## 6. Engineering Roadmap
+## 6. Vercel Deployment & Cloud Environment Setup
+
+Campus Plus is production-ready for deployment on **Vercel** paired with **Supabase PostgreSQL 17**.
+
+### 1. Vercel Configuration & Environment Templates
+- **[`vercel.json`](file:///d:/Deparment%20Project/department%20project/vercel.json)**: Contains build presets, Turbopack scripts, and security headers (HSTS, X-Content-Type-Options, X-Frame-Options, CSP, and Referrer-Policy).
+- **[`.env.vercel.example`](file:///d:/Deparment%20Project/department%20project/.env.vercel.example)**: Comprehensive mapping of all client (`NEXT_PUBLIC_`) and server-only variables for Vercel Project Settings.
+- **Detailed Documentation**: See [**`docs/engineering/infrastructure/VERCEL-ENVIRONMENT-SETUP.md`**](file:///d:/Deparment%20Project/department%20project/docs/engineering/infrastructure/VERCEL-ENVIRONMENT-SETUP.md).
+
+### 2. Required Environment Variables for Vercel
+Configure in **Vercel Dashboard → Project Settings → Environment Variables**:
+- `NEXT_PUBLIC_APP_URL`: Production URL (e.g. `https://campus-plus.vercel.app`)
+- `NEXT_PUBLIC_APP_ENV`: `production` or `staging`
+- `NEXT_PUBLIC_SUPABASE_URL`: Target Supabase HTTPS URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase publishable anonymous key
+- `DATABASE_URL`: Supabase Transaction Pooler URL (`aws-0-*.pooler.supabase.com:6543/postgres`)
+- `SUPABASE_SERVICE_ROLE_KEY`: Server-only administrative key
+- `APP_SECRET`: 32+ character random encryption secret
+- `CRON_SECRET`: Random secret for authorized SLA monitors
+- `STORAGE_BUCKET_ATTACHMENTS`: `campus-plus-attachments`
+
+### 3. Deploy via Vercel CLI
+```bash
+# Link repository to Vercel
+vercel link
+
+# Pull environment variables locally
+vercel env pull
+
+# Deploy staging preview
+vercel
+
+# Deploy to production
+vercel --prod
+```
+
+---
+
+## 7. Engineering Roadmap
 
 - [x] **Phase 00**: Forensic Reconnaissance & Toolchain Audit
 - [x] **Phase 01**: Requirements Engineering & Traceability Matrix (38 MUST Requirements)
