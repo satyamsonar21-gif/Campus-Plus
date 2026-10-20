@@ -155,7 +155,19 @@ vercel --prod
 
 ---
 
-## 7. Engineering Roadmap
+## 7. Supabase Environment & Database Setup
+
+Campus Plus persists all grievance records, audit logs, and attachments on **Supabase** (PostgreSQL 17):
+
+### 1. Database & Storage Initialization Scripts
+* [**`scripts/supabase_consolidated_schema.sql`**](file:///d:/Deparment%20Project/department%20project/scripts/supabase_consolidated_schema.sql): Complete transaction-bounded schema provisioning 22 tables, 5 enums, 1 sequence, triggers, indexes, and hardened RLS policies. Run directly in the **Supabase Dashboard SQL Editor**.
+* [**`scripts/supabase_auth_and_storage_setup.sql`**](file:///d:/Deparment%20Project/department%20project/scripts/supabase_auth_and_storage_setup.sql): Creates private storage bucket `campus-plus-attachments`, storage RLS policies, and the `on_auth_user_created` trigger for automatic profile provisioning upon signup.
+* [**`.env.supabase.example`**](file:///d:/Deparment%20Project/department%20project/.env.supabase.example): Environment variable template targeting your Supabase instance.
+* **Detailed Documentation**: See [**`docs/engineering/infrastructure/SUPABASE-ENVIRONMENT-SETUP.md`**](file:///d:/Deparment%20Project/department%20project/docs/engineering/infrastructure/SUPABASE-ENVIRONMENT-SETUP.md).
+
+---
+
+## 8. Engineering Roadmap
 
 - [x] **Phase 00**: Forensic Reconnaissance & Toolchain Audit
 - [x] **Phase 01**: Requirements Engineering & Traceability Matrix (38 MUST Requirements)
