@@ -5,11 +5,6 @@ import {
   ALLOWED_STATUS_TRANSITIONS,
   isTerminalStatus,
 } from "@/domain/complaint/ComplaintStatus";
-import {
-  ComplaintPriority,
-  PROVISIONAL_DEFAULT_SLA_HOURS,
-} from "@/domain/complaint/ComplaintTypes";
-
 describe("Canonical 13-State Domain FSM & Transition Rules", () => {
   describe("Legal Sequential & Branching Transitions", () => {
     it("should permit DRAFT -> SUBMITTED", () => {
@@ -116,12 +111,4 @@ describe("Canonical 13-State Domain FSM & Transition Rules", () => {
     });
   });
 
-  describe("Provisional Resolution SLA Hours (OD-006)", () => {
-    it("should define configurable provisional bounds matching Phase 04 reference seed", () => {
-      expect(PROVISIONAL_DEFAULT_SLA_HOURS[ComplaintPriority.LOW]).toBe(168);
-      expect(PROVISIONAL_DEFAULT_SLA_HOURS[ComplaintPriority.MEDIUM]).toBe(72);
-      expect(PROVISIONAL_DEFAULT_SLA_HOURS[ComplaintPriority.HIGH]).toBe(24);
-      expect(PROVISIONAL_DEFAULT_SLA_HOURS[ComplaintPriority.URGENT]).toBe(12);
-    });
-  });
 });

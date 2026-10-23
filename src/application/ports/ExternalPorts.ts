@@ -4,6 +4,14 @@ export interface FileMetadata {
   filename: string;
   contentType: string;
   sizeBytes: number;
+  ownerId?: string;
+}
+
+export interface UploadedFileVerification {
+  ownerId: string;
+  fileKey: string;
+  contentType: string;
+  sizeBytes: number;
 }
 
 export interface UploadPresignedUrlResult {
@@ -14,7 +22,8 @@ export interface UploadPresignedUrlResult {
 
 export interface StoragePort {
   generateUploadUrl(metadata: FileMetadata): Promise<UploadPresignedUrlResult>;
-  getDownloadUrl(fileKey: string): Promise<string>;
+  verifyUploadedFile(file: UploadedFileVerification): Promise<boolean>;
+  getDownloadUrl(fileKey: string, expiresInSeconds?: number): Promise<string>;
   deleteFile(fileKey: string): Promise<void>;
 }
 

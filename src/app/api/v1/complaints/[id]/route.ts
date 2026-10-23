@@ -25,7 +25,27 @@ export async function GET(
     }
 
     const dto = toComplaintDTO(result.value, actor);
-    return createSuccessResponse(dto);
+    const attachmentResult = await container.db.query<{
+      id: string;
+      original_filename: string;
+      mime_type: string;
+      file_size_bytes: number;
+      created_at: string;
+    }>(
+      `SELECT id::text AS id, original_filename, mime_type, file_size_bytes, created_at
+       FROM attachments WHERE complaint_id = $1 ORDER BY created_at ASC;`,
+      [result.value.id.toString()]
+    );
+    return createSuccessResponse({
+      ...dto,
+      attachments: attachmentResult.rows.map((attachment) => ({
+        id: attachment.id,
+        originalFilename: attachment.original_filename,
+        mimeType: attachment.mime_type,
+        fileSizeBytes: attachment.file_size_bytes,
+        createdAt: attachment.created_at,
+      })),
+    });
   } catch (error) {
     return handleApiError(error);
   }

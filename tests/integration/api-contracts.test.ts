@@ -7,6 +7,8 @@ import { GET as getComplaintHandler } from "@/app/api/v1/complaints/[id]/route";
 import { GET as getTimelineHandler } from "@/app/api/v1/complaints/[id]/timeline/route";
 import { POST as presignUploadHandler } from "@/app/api/v1/attachments/presign-upload/route";
 import { GET as authMeHandler } from "@/app/api/v1/auth/me/route";
+import { GET as downloadComplaintAttachmentHandler } from "@/app/api/v1/complaints/[id]/attachments/[attachmentId]/route";
+import { getContainer } from "@/infrastructure/container";
 
 const FIXTURES = {
   studentA: "00000000-0000-0000-0000-000000001001",
@@ -151,6 +153,37 @@ describe("Phase 06 API Contracts & Envelope Compliance", () => {
     const json = await res.json();
     expect(json.success).toBe(false);
     expect(json.error.code).toBe("NOT_FOUND");
+  });
+
+  it("GET /api/v1/complaints/[id]/attachments/[attachmentId]: returns a short-lived URL only after complaint access is authorized", async () => {
+    const container = await getContainer();
+    const upload = await container.storageAdapter.generateUploadUrl({
+      filename: "supporting-image.png",
+      contentType: "image/png",
+      sizeBytes: 2048,
+      ownerId: FIXTURES.studentA,
+    });
+    const attachmentInsert = await container.db.query<{ id: string }>(
+      `INSERT INTO attachments (
+         complaint_id, storage_key, original_filename, mime_type, file_size_bytes, uploaded_by_id
+       ) VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id::text AS id;`,
+      [FIXTURES.existingComplaintId, upload.fileKey, "supporting-image.png", "image/png", 2048, FIXTURES.studentA]
+    );
+    const attachmentId = attachmentInsert.rows[0].id;
+    const request = new NextRequest(
+      `http://localhost/api/v1/complaints/${FIXTURES.existingComplaintId}/attachments/${attachmentId}`,
+      { headers: { "x-actor-id": FIXTURES.studentA } }
+    );
+
+    const response = await downloadComplaintAttachmentHandler(request, {
+      params: Promise.resolve({ id: FIXTURES.existingComplaintId, attachmentId }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.downloadUrl).toContain(upload.fileKey);
+    expect(body.data.expiresInSeconds).toBe(60);
   });
 
   it("GET /api/v1/complaints/[id]/timeline: returns 200 with timeline event array", async () => {

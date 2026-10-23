@@ -48,14 +48,3 @@ export const UserRole = {
 } as const;
 
 export type UserRoleType = (typeof UserRole)[keyof typeof UserRole];
-
-/**
- * Provisional Institutional Default Resolution SLA Hours.
- * Defined per OD-006; these are non-binding operational defaults pending administrative ratification.
- */
-export const PROVISIONAL_DEFAULT_SLA_HOURS: Record<ComplaintPriorityType, number> = {
-  [ComplaintPriority.LOW]: 168,   // 7 calendar days
-  [ComplaintPriority.MEDIUM]: 72, // 3 calendar days
-  [ComplaintPriority.HIGH]: 24,   // 24 hours
-  [ComplaintPriority.URGENT]: 12, // 12 hours
-};

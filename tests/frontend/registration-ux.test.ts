@@ -32,7 +32,8 @@ describe("Master Product Experience: Registration & Provisioning ('/register')",
     expect(html).contain("Academic Department");
     expect(html).contain("Password");
     expect(html).contain("Confirm Password");
-    expect(html).contain("Submit Student Enrollment Request");
+    expect(html).contain("Create Student Account");
+    expect(html).not.contain("Submit Student Enrollment Request");
   });
 
   it("4. communicates identity governance and RBAC security boundaries", () => {

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { PersonaId, PERSONA_CONFIGS, ALL_PERSONA_IDS } from "./authTypes";
 import { RoleOptionCard } from "./RoleOptionCard";
 import { RoleRegistrationForm } from "./RoleRegistrationForm";
+import { PrivilegedRoleProvisioningNotice } from "./PrivilegedRoleProvisioningNotice";
 
 export interface RegistrationFlowProps {
   initialPersona?: PersonaId;
@@ -60,16 +61,27 @@ export function RegistrationFlow({
         </div>
       </div>
 
-      {/* Role-Specific Onboarding Form */}
+      {/* Student self-registration is open; staff roles require administrator provisioning. */}
       <div id="role-onboarding-section">
-        <RoleRegistrationForm
-          personaConfig={currentConfig}
-          onChangeRole={() => {
-            if (typeof window !== "undefined") {
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }
-          }}
-        />
+        {selectedPersona === "student" ? (
+          <RoleRegistrationForm
+            personaConfig={currentConfig}
+            onChangeRole={() => {
+              if (typeof window !== "undefined") {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+            }}
+          />
+        ) : (
+          <PrivilegedRoleProvisioningNotice
+            personaConfig={currentConfig}
+            onChangeRole={() => {
+              if (typeof window !== "undefined") {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+            }}
+          />
+        )}
       </div>
     </div>
   );

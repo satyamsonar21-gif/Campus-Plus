@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ProtectedRoute } from "@/presentation/components/auth/ProtectedRoute";
 import { UserRole } from "@/domain/complaint";
-import { apiClient } from "@/presentation/services/apiClient";
+import { apiClient, CategoryReferenceData } from "@/presentation/services/apiClient";
 import { Card } from "@/presentation/components/primitives/Card";
 import { Button } from "@/presentation/components/primitives/Button";
 import { TextInput } from "@/presentation/components/forms/TextInput";
@@ -13,38 +13,53 @@ import { TextArea } from "@/presentation/components/forms/TextArea";
 import { AlertBanner } from "@/presentation/components/feedback/AlertBanner";
 import { FileUploader, UploadedFileItem } from "@/presentation/components/domain/FileUploader";
 
-const CATEGORIES = [
-  { id: "NETWORK_WIFI", label: "Network & Campus Wi-Fi", defaultDept: "00000000-0000-0000-0000-000000000010" },
-  { id: "HOSTEL_MAINTENANCE", label: "Hostel Maintenance & Facilities", defaultDept: "00000000-0000-0000-0000-000000000020" },
-  { id: "CLASSROOM_INFRASTRUCTURE", label: "Classroom & Lab Infrastructure", defaultDept: "00000000-0000-0000-0000-000000000010" },
-  { id: "ACADEMIC_EVALUATION", label: "Academic & Evaluation Concerns", defaultDept: "00000000-0000-0000-0000-000000000010" },
-  { id: "CAMPUS_SANITATION", label: "Campus Sanitation & Grounds", defaultDept: "00000000-0000-0000-0000-000000000020" },
-  { id: "OTHER", label: "Other General Inquiries", defaultDept: "00000000-0000-0000-0000-000000000010" },
-];
-
-const PRIORITIES: Array<{ id: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; label: string; desc: string }> = [
-  { id: "LOW", label: "Low", desc: "Routine maintenance or minor non-blocking issue" },
-  { id: "MEDIUM", label: "Medium", desc: "Noticeable disruption to standard daily study or work" },
-  { id: "HIGH", label: "High", desc: "Significant impediment affecting multiple students or facilities" },
-  { id: "URGENT", label: "Urgent", desc: "Immediate safety, security, or severe campus-wide outage" },
+const PRIORITIES: Array<{ id: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; label: string }> = [
+  { id: "LOW", label: "Low" },
+  { id: "MEDIUM", label: "Medium" },
+  { id: "HIGH", label: "High" },
+  { id: "URGENT", label: "Urgent" },
 ];
 
 function NewComplaintForm() {
   const router = useRouter();
 
   // Form State
-  const [categoryId, setCategoryId] = useState("NETWORK_WIFI");
+  const [categories, setCategories] = useState<CategoryReferenceData[]>([]);
+  const [categoryId, setCategoryId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [locationDetails, setLocationDetails] = useState("");
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH" | "URGENT">("MEDIUM");
   const [files, setFiles] = useState<UploadedFileItem[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [categoryLoadError, setCategoryLoadError] = useState<string | null>(null);
 
   // Workflow & Validation State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const selectedCategory = CATEGORIES.find((c) => c.id === categoryId) || CATEGORIES[0];
+  const selectedCategory = categories.find((category) => category.id === categoryId);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    apiClient.getReferenceData()
+      .then((referenceData) => {
+        if (!isMounted) return;
+        setCategories(referenceData.categories);
+        setCategoryId((current) => current || referenceData.categories[0]?.id || "");
+      })
+      .catch((error: unknown) => {
+        if (isMounted) {
+          setCategoryLoadError(error instanceof Error ? error.message : "Could not load complaint categories.");
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingCategories(false);
+      });
+
+    return () => { isMounted = false; };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,26 +83,34 @@ function NewComplaintForm() {
       return;
     }
 
+    if (!selectedCategory) {
+      setErrorMessage("Select an active complaint category before submitting.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // Execute upload presigning for any attached files
+      const attachments: NonNullable<Parameters<typeof apiClient.submitComplaint>[0]["attachments"]> = [];
       for (const item of files) {
-        try {
-          const presignRes = await apiClient.presignUpload({
-            filename: item.name,
-            mimeType: item.file.type as "image/jpeg" | "image/png" | "application/pdf",
-            fileSizeBytes: item.sizeBytes,
-          });
-          if (presignRes && presignRes.uploadUrl) {
-            await fetch(presignRes.uploadUrl, {
-              method: "PUT",
-              headers: { "Content-Type": item.file.type },
-              body: item.file,
-            });
-          }
-        } catch {
-          // File upload best-effort; does not block grievance filing
+        const presignRes = await apiClient.presignUpload({
+          filename: item.name,
+          mimeType: item.file.type as "image/jpeg" | "image/png" | "application/pdf",
+          fileSizeBytes: item.sizeBytes,
+        });
+        const uploadResponse = await fetch(presignRes.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": item.file.type },
+          body: item.file,
+        });
+        if (!uploadResponse.ok) {
+          throw new Error(`Could not upload "${item.name}". Please retry the upload.`);
         }
+        attachments.push({
+          fileKey: presignRes.fileKey,
+          originalFilename: item.name,
+          mimeType: item.file.type as "image/jpeg" | "image/png" | "application/pdf",
+          fileSizeBytes: item.sizeBytes,
+        });
       }
 
       // Submit complaint with UUIDv4 Idempotency-Key
@@ -97,9 +120,10 @@ function NewComplaintForm() {
           title: trimmedTitle,
           description: trimmedDesc,
           categoryId: selectedCategory.id,
-          departmentId: selectedCategory.defaultDept,
+          departmentId: selectedCategory.defaultDepartmentId,
           locationDetails: locationDetails.trim(),
           suggestedPriority: priority,
+          attachments,
         },
         idempotencyKey
       );
@@ -141,19 +165,31 @@ function NewComplaintForm() {
         {/* Step 1: Category Selection */}
         <Card title="1. Category &amp; Jurisdiction" description="Select the institutional category that best describes your grievance.">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-            {CATEGORIES.map((cat) => (
+            {isLoadingCategories && (
+              <p className="col-span-full text-xs text-slate-500" role="status">Loading active categories…</p>
+            )}
+            {categoryLoadError && (
+              <div className="col-span-full">
+                <AlertBanner variant="error" title="Categories unavailable">{categoryLoadError}</AlertBanner>
+              </div>
+            )}
+            {!isLoadingCategories && !categoryLoadError && categories.length === 0 && (
+              <p className="col-span-full text-xs text-slate-500">No active complaint categories are configured.</p>
+            )}
+            {categories.map((cat) => (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => setCategoryId(cat.id)}
+                disabled={isSubmitting}
                 className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                   categoryId === cat.id
                     ? "border-[var(--role-primary,#7FA8D9)] bg-[var(--role-accent,#EAF2FB)] ring-1 ring-[var(--role-primary,#7FA8D9)]"
                     : "border-slate-200 hover:border-slate-300 bg-white"
                 }`}
               >
-                <div className="font-semibold text-xs text-slate-900">{cat.label}</div>
-                <div className="text-[11px] text-slate-500 mt-0.5">Dispatched to responsible department</div>
+                <div className="font-semibold text-xs text-slate-900">{cat.name}</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Routed to {cat.defaultDepartmentName}</div>
               </button>
             ))}
           </div>
@@ -206,7 +242,7 @@ function NewComplaintForm() {
         </Card>
 
         {/* Step 4: Suggested Priority */}
-        <Card title="3. Impact &amp; Suggested Priority" description="Indicate the urgency to assist the department head during triage.">
+        <Card title="3. Impact &amp; Suggested Priority" description="This is a suggested level. Authorized staff confirm the official priority during review.">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             {PRIORITIES.map((p) => (
               <button
@@ -222,7 +258,7 @@ function NewComplaintForm() {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-slate-900">{p.label} Priority</span>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">{p.desc}</p>
+                <p className="text-[11px] text-slate-500 mt-1">For staff triage only; this does not set a resolution deadline.</p>
               </button>
             ))}
           </div>
@@ -239,7 +275,7 @@ function NewComplaintForm() {
               disabled={isSubmitting}
             />
             <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500">
-              <span className="font-semibold text-slate-700">Attachment Protocol (GAP-003):</span> Attached files are pre-signed and stored securely in Supabase Storage. Entity relation binding is tracked in the intake audit log.
+              <span className="font-semibold text-slate-700">Private evidence:</span> Each upload is verified and linked to this complaint before submission completes. A failed upload blocks the complaint so no missing evidence is reported as attached.
             </div>
           </div>
         </Card>
@@ -250,7 +286,7 @@ function NewComplaintForm() {
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 divide-y divide-slate-200/80 text-xs">
               <div className="pb-2.5 flex justify-between items-center">
                 <span className="text-slate-500 font-medium">Jurisdiction &amp; Category:</span>
-                <span className="font-semibold text-slate-900">{selectedCategory.label}</span>
+                <span className="font-semibold text-slate-900">{selectedCategory?.name ?? "Category unavailable"}</span>
               </div>
               <div className="py-2.5 flex justify-between items-center">
                 <span className="text-slate-500 font-medium">Suggested Priority:</span>
@@ -293,7 +329,7 @@ function NewComplaintForm() {
             size="lg"
             className="font-bold shadow-xs"
             isLoading={isSubmitting}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLoadingCategories || categories.length === 0}
           >
             Submit Grievance
           </Button>
@@ -305,7 +341,7 @@ function NewComplaintForm() {
 
 export default function NewComplaintPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.ROLE_STUDENT, UserRole.ROLE_FACULTY]}>
+    <ProtectedRoute allowedRoles={[UserRole.ROLE_STUDENT]}>
       <NewComplaintForm />
     </ProtectedRoute>
   );

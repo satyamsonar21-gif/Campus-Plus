@@ -26,7 +26,7 @@ export class SupabaseStorageAdapter implements StoragePort {
       this.supabase = supabaseClient;
     } else {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
       if (!url || !key) {
         throw new Error("SupabaseStorageAdapter requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
@@ -57,7 +57,8 @@ export class SupabaseStorageAdapter implements StoragePort {
     const nameOnly = path.posix.basename(base, ext).replace(/[^a-zA-Z0-9_-]/g, "_");
     const sanitizedFilename = `${nameOnly || "file"}${ext}`.slice(0, 100);
     const fileUuid = crypto.randomUUID();
-    const fileKey = `complaints/temp/${fileUuid}-${sanitizedFilename}`;
+    const ownerSegment = metadata.ownerId ? `${metadata.ownerId}/` : "";
+    const fileKey = `complaints/temp/${ownerSegment}${fileUuid}-${sanitizedFilename}`;
 
     // 4. Create signed upload URL from Supabase Storage
     const { data, error } = await this.supabase.storage.from(this.bucket).createSignedUploadUrl(fileKey);
@@ -71,6 +72,20 @@ export class SupabaseStorageAdapter implements StoragePort {
       fileKey,
       expiresInSeconds: 3600,
     };
+  }
+
+  public async verifyUploadedFile(file: {
+    ownerId: string;
+    fileKey: string;
+    contentType: string;
+    sizeBytes: number;
+  }): Promise<boolean> {
+    if (!file.fileKey.startsWith(`complaints/temp/${file.ownerId}/`)) return false;
+
+    const { data, error } = await this.supabase.storage.from(this.bucket).info(file.fileKey);
+    if (error || !data) return false;
+
+    return data.size === file.sizeBytes && data.contentType === file.contentType;
   }
 
   public async getDownloadUrl(fileKey: string, expiresInSeconds: number = 3600): Promise<string> {

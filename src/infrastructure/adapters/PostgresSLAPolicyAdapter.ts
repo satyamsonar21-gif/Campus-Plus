@@ -6,13 +6,6 @@ interface SLAPolicyRow {
   resolution_threshold_hours: number;
 }
 
-const DEFAULT_HOURS: Record<string, number> = {
-  URGENT: 12,
-  HIGH: 24,
-  MEDIUM: 72,
-  LOW: 168,
-};
-
 /**
  * PostgreSQL SLA Policy Adapter.
  * Resolves resolution deadlines from 'sla_policies' configuration table based on category and priority.
@@ -24,7 +17,7 @@ export class PostgresSLAPolicyAdapter implements ISLAPolicyPort {
     categoryId: CategoryId,
     priority: Priority,
     createdAt: Date
-  ): Promise<Date> {
+  ): Promise<Date | null> {
     const res = await this.db.query<SLAPolicyRow>(
       `SELECT resolution_threshold_hours 
        FROM sla_policies 
@@ -33,13 +26,9 @@ export class PostgresSLAPolicyAdapter implements ISLAPolicyPort {
       [categoryId.toString(), priority.toString()]
     );
 
-    let hours: number;
-    if (res.rows.length > 0) {
-      hours = res.rows[0].resolution_threshold_hours;
-    } else {
-      hours = DEFAULT_HOURS[priority.toString()] ?? 72;
-    }
+    if (res.rows.length === 0) return null;
 
+    const hours = res.rows[0].resolution_threshold_hours;
     const deadline = new Date(createdAt.getTime() + hours * 60 * 60 * 1000);
     return deadline;
   }

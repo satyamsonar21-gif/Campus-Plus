@@ -1,5 +1,5 @@
 import { DatabaseQueryInterface } from "./database/migrator";
-import { getDatabaseClient } from "./database/pool";
+import { executeTransaction, getDatabaseClient } from "./database/pool";
 import { PostgresComplaintRepository } from "./database/PostgresComplaintRepository";
 import { PostgresTrackingCodeGenerator } from "./adapters/PostgresTrackingCodeGenerator";
 import { PostgresIdempotencyAdapter } from "./adapters/PostgresIdempotencyAdapter";
@@ -7,7 +7,7 @@ import { PostgresDepartmentMembershipAdapter } from "./adapters/PostgresDepartme
 import { PostgresSLAPolicyAdapter } from "./adapters/PostgresSLAPolicyAdapter";
 import { CalendarReopenPolicyAdapter, EvidenceResolutionPolicyAdapter } from "./adapters/PolicyAdapters";
 import { AuthenticationAdapter } from "./auth/AuthenticationAdapter";
-import { InMemoryStorageAdapter } from "./storage/StorageAdapter";
+import { InMemoryStorageAdapter, UnavailableStorageAdapter } from "./storage/StorageAdapter";
 import { SupabaseStorageAdapter } from "./storage/SupabaseStorageAdapter";
 import { StoragePort } from "@/application/ports/ExternalPorts";
 
@@ -79,7 +79,7 @@ export async function getContainer(): Promise<AppContainer> {
   containerPromise = (async () => {
     const db = await getDatabaseClient();
 
-    const complaintRepo = new PostgresComplaintRepository(db);
+    const complaintRepo = new PostgresComplaintRepository(db, executeTransaction);
     const trackingCodeGenerator = new PostgresTrackingCodeGenerator(db);
     const idempotencyAdapter = new PostgresIdempotencyAdapter(db);
     const membershipAdapter = new PostgresDepartmentMembershipAdapter(db);
@@ -87,16 +87,20 @@ export async function getContainer(): Promise<AppContainer> {
     const reopenPolicyAdapter = new CalendarReopenPolicyAdapter();
     const resolutionPolicyAdapter = new EvidenceResolutionPolicyAdapter(db);
     const authAdapter = new AuthenticationAdapter(db);
-    const storageAdapter: StoragePort =
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-        ? new SupabaseStorageAdapter()
+    const hasPrivateStorageCredentials = Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+    const storageAdapter: StoragePort = hasPrivateStorageCredentials
+      ? new SupabaseStorageAdapter()
+      : process.env.NODE_ENV === "production"
+        ? new UnavailableStorageAdapter()
         : new InMemoryStorageAdapter();
 
     const submitComplaintUseCase = new SubmitComplaintUseCase(
       complaintRepo,
       trackingCodeGenerator,
-      idempotencyAdapter
+      idempotencyAdapter,
+      slaPolicyAdapter
     );
     const reviewComplaintUseCase = new ReviewComplaintUseCase(complaintRepo);
     const assignComplaintUseCase = new AssignComplaintUseCase(complaintRepo, membershipAdapter);

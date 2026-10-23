@@ -111,7 +111,7 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 
 let browserSupabaseClient: SupabaseClient | null = null;
 
-function getBrowserSupabaseClient(): SupabaseClient | null {
+export function getBrowserSupabaseClient(): SupabaseClient | null {
   if (browserSupabaseClient) return browserSupabaseClient;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -127,7 +127,12 @@ function getBrowserSupabaseClient(): SupabaseClient | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [authState, setAuthState] = useState<AuthState>("INITIALIZING");
+  const authClientConfigured = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+  const [authState, setAuthState] = useState<AuthState>(
+    authClientConfigured ? "INITIALIZING" : "UNAUTHENTICATED"
+  );
   const [user, setUser] = useState<User | null>(null);
   const [actor, setActor] = useState<AuthMeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -184,10 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const client = getBrowserSupabaseClient();
-    if (!client) {
-      setAuthState("UNAUTHENTICATED");
-      return;
-    }
+    if (!client) return;
 
     // Initial session check
     client.auth.getSession().then(async ({ data: { session } }) => {

@@ -196,7 +196,7 @@ export class Complaint {
       const categoryId = new CategoryId(props.categoryId);
       const locationId = props.locationId ? new LocationId(props.locationId) : undefined;
       const suggestedPriority = new Priority(props.suggestedPriority ?? ComplaintPriority.MEDIUM);
-      const officialPriority = new Priority(props.officialPriority ?? props.suggestedPriority ?? ComplaintPriority.MEDIUM);
+      const officialPriority = new Priority(props.officialPriority ?? ComplaintPriority.MEDIUM);
       const status = props.status ?? ComplaintStatus.SUBMITTED;
       const version = new ComplaintVersion(props.version ?? 1);
 

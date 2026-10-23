@@ -13,6 +13,12 @@ export const SubmitComplaintSchema = z
     locationDetails: z.string().trim().min(1, "Location details are required").max(255),
     locationId: uuidField.optional(),
     suggestedPriority: z.nativeEnum(ComplaintPriority).optional(),
+    attachments: z.array(z.object({
+      fileKey: z.string().trim().min(1).max(500),
+      originalFilename: z.string().trim().min(1).max(255),
+      mimeType: z.enum(["image/jpeg", "image/png", "application/pdf"]),
+      fileSizeBytes: z.number().int().positive().max(5242880),
+    }).strict()).max(3).optional(),
   })
   .strict();
 

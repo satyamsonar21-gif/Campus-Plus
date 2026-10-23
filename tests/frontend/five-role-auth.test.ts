@@ -119,7 +119,7 @@ describe("Five-Role Authentication Architecture & Security Matrix", () => {
   });
 
   describe("3. Role-Specific Onboarding & Field Provenance (Zero Fake Fields)", () => {
-    it("renders Student enrollment form with exact database-supported fields", () => {
+    it("renders a real Student sign-up form using database-backed departments", () => {
       const html = renderToStaticMarkup(
         React.createElement(RoleRegistrationForm, {
           personaConfig: PERSONA_CONFIGS.student,
@@ -130,56 +130,54 @@ describe("Five-Role Authentication Architecture & Security Matrix", () => {
       expect(html).contain("Student Roll / ID Number");
       expect(html).contain("Institutional Campus Email");
       expect(html).contain("Academic Department");
-      expect(html).contain("Submit Student Enrollment Request");
+      expect(html).contain("Create Student Account");
+      expect(html).not.contain("Submit Student Enrollment Request");
     });
 
-    it("renders Faculty / Handler onboarding with institutional verification guidance", () => {
+    it("does not allow public self-provisioning of Faculty / Handler accounts", () => {
       const html = renderToStaticMarkup(
         React.createElement(RoleRegistrationForm, {
           personaConfig: PERSONA_CONFIGS.handler,
         })
       );
-      expect(html).contain("Faculty / Complaint Handler Onboarding");
-      expect(html).contain("Faculty / Staff ID Number");
-      expect(html).contain("Academic Department");
-      expect(html).contain("Submit Faculty Onboarding Request");
-      expect(html).contain("Privileged credentials require institutional verification");
+      expect(html).contain("Faculty / Complaint Handler Enrollment");
+      expect(html).contain("Institutional Account Provisioning Required");
+      expect(html).contain("No account request is submitted from this page");
+      expect(html).not.contain("Faculty / Staff ID Number");
+      expect(html).not.contain("Submit Faculty Onboarding Request");
     });
 
-    it("renders HOD onboarding with Department Head scope", () => {
+    it("does not allow public self-provisioning of HOD accounts", () => {
       const html = renderToStaticMarkup(
         React.createElement(RoleRegistrationForm, {
           personaConfig: PERSONA_CONFIGS.hod,
         })
       );
-      expect(html).contain("HOD Onboarding");
-      expect(html).contain("Official Faculty / Staff ID");
-      expect(html).contain("Submit HOD Appointment Verification Request");
-      expect(html).contain("Department Head");
+      expect(html).contain("HOD Enrollment");
+      expect(html).contain("Institutional Account Provisioning Required");
+      expect(html).not.contain("Submit HOD Appointment Verification Request");
     });
 
-    it("renders Director onboarding with Directorate purview", () => {
+    it("does not allow public self-provisioning of Director accounts", () => {
       const html = renderToStaticMarkup(
         React.createElement(RoleRegistrationForm, {
           personaConfig: PERSONA_CONFIGS.director,
         })
       );
-      expect(html).contain("Director / Senior Authority Onboarding");
-      expect(html).contain("Directorate Authority ID");
-      expect(html).contain("Campus-Wide Directorate Purview");
-      expect(html).contain("Submit Directorate Verification Inquiry");
+      expect(html).contain("Director / Senior Authority Enrollment");
+      expect(html).contain("Institutional Account Provisioning Required");
+      expect(html).not.contain("Submit Directorate Verification Inquiry");
     });
 
-    it("renders Institutional Management onboarding with Board Governance purview", () => {
+    it("does not allow public self-provisioning of Management accounts", () => {
       const html = renderToStaticMarkup(
         React.createElement(RoleRegistrationForm, {
           personaConfig: PERSONA_CONFIGS.management,
         })
       );
-      expect(html).contain("Institutional Management Onboarding");
-      expect(html).contain("Institutional Officer / Trustee ID");
-      expect(html).contain("Governing Board Institutional Purview");
-      expect(html).contain("Submit Board Governance Verification Request");
+      expect(html).contain("Institutional Management Enrollment");
+      expect(html).contain("Institutional Account Provisioning Required");
+      expect(html).not.contain("Submit Board Governance Verification Request");
     });
   });
 
