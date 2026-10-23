@@ -64,12 +64,41 @@ export interface SubmitComplaintInput {
   locationDetails: string;
   locationId?: string;
   suggestedPriority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  attachments?: Array<{
+    fileKey: string;
+    originalFilename: string;
+    mimeType: "image/jpeg" | "image/png" | "application/pdf";
+    fileSizeBytes: number;
+  }>;
+}
+
+export interface CategoryReferenceData {
+  id: string;
+  name: string;
+  defaultDepartmentId: string;
+  defaultDepartmentName: string;
+  requiresResolutionProof: boolean;
+}
+
+export interface DepartmentReferenceData {
+  id: string;
+  name: string;
+}
+
+export interface PublicReferenceData {
+  categories: CategoryReferenceData[];
+  departments: DepartmentReferenceData[];
 }
 
 export interface SubmitComplaintResult {
   complaintId: string;
   trackingCode: string;
   status: string;
+}
+
+export interface AttachmentDownloadResult {
+  downloadUrl: string;
+  expiresInSeconds: number;
 }
 
 export interface ListComplaintsParams {
@@ -89,7 +118,7 @@ export interface PresignUploadInput {
 export interface PresignUploadResult {
   uploadUrl: string;
   fileKey: string;
-  publicUrl: string;
+  expiresInSeconds: number;
 }
 
 export interface TimelineItem {
@@ -232,6 +261,12 @@ export class ApiClient {
     return res.data;
   }
 
+  /** GET /api/v1/reference-data — Active complaint categories and their configured routing. */
+  public async getReferenceData(): Promise<PublicReferenceData> {
+    const res = await this.request<PublicReferenceData>("/api/v1/reference-data");
+    return res.data;
+  }
+
   // ============================================================================
   // 2. COMPLAINT INTAKE & RETRIEVAL OPERATIONS
   // ============================================================================
@@ -284,6 +319,17 @@ export class ApiClient {
   ): Promise<StudentComplaintDTO | StaffComplaintDTO> {
     const res = await this.request<StudentComplaintDTO | StaffComplaintDTO>(
       `/api/v1/complaints/${encodeURIComponent(idOrTrackingCode)}`
+    );
+    return res.data;
+  }
+
+  /** GET /api/v1/complaints/:id/attachments/:attachmentId — Authorized short-lived download URL. */
+  public async getComplaintAttachmentDownloadUrl(
+    complaintId: string,
+    attachmentId: string
+  ): Promise<AttachmentDownloadResult> {
+    const res = await this.request<AttachmentDownloadResult>(
+      `/api/v1/complaints/${complaintId}/attachments/${attachmentId}`
     );
     return res.data;
   }

@@ -1,55 +1,7 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
-import { CampusPlusAuthShell } from "@/presentation/components/auth/CampusPlusAuthShell";
-import { AuthBrandPanel } from "@/presentation/components/auth/AuthBrandPanel";
-import { SignInForm, mapAuthErrorMessage } from "@/presentation/components/auth/SignInForm";
-import { PersonaId, PERSONA_CONFIGS } from "@/presentation/components/auth/authTypes";
-
-export { mapAuthErrorMessage };
-
-export function LoginForm() {
-  const [selectedPersona, setSelectedPersona] = useState<PersonaId>("student");
-
-  // Kept here for explicit unit-level testing compatibility
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  void email;
-  void setEmail;
-  void password;
-  void setPassword;
-
-  const currentConfig = PERSONA_CONFIGS[selectedPersona];
-
-  return (
-    <CampusPlusAuthShell currentPersona={currentConfig} mode="login">
-      <div
-        className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center"
-        style={
-          {
-            "--persona-primary": currentConfig.palette.primary,
-            "--persona-secondary": currentConfig.palette.secondary,
-            "--persona-accent": currentConfig.palette.accent,
-            "--persona-action-text": currentConfig.palette.actionText,
-          } as React.CSSProperties
-        }
-      >
-        {/* Left Column: Institutional Brand & Security Guarantees */}
-        <div className="lg:col-span-6 hidden lg:block">
-          <AuthBrandPanel selectedPersonaConfig={currentConfig} />
-        </div>
-
-        {/* Right Column: Interactive 5-Persona Sign-In Panel */}
-        <div className="lg:col-span-6 w-full max-w-md mx-auto">
-          <SignInForm
-            selectedPersona={selectedPersona}
-            onSelectPersona={setSelectedPersona}
-          />
-        </div>
-      </div>
-    </CampusPlusAuthShell>
-  );
-}
+import React, { Suspense } from "react";
+import { LoginForm } from "@/presentation/components/auth/LoginForm";
 
 export default function LoginPage() {
   return (

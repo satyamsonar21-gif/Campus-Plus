@@ -1,5 +1,13 @@
 import { Complaint, ActorContext, UserRole } from "@/domain/complaint";
 
+export interface ComplaintAttachmentDTO {
+  id: string;
+  originalFilename: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  createdAt: string;
+}
+
 export interface StudentComplaintDTO {
   id: string;
   trackingCode: string;
@@ -18,6 +26,7 @@ export interface StudentComplaintDTO {
   closedAt?: string;
   createdAt: string;
   updatedAt: string;
+  attachments?: ComplaintAttachmentDTO[];
   resolution?: {
     summary: string;
     resolvedAt: string;

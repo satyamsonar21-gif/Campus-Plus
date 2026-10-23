@@ -213,10 +213,11 @@ describe("Phase 07-B — Live Supabase Infrastructure & Security Architecture Su
         filename: "../../etc/passwd.pdf",
         contentType: "application/pdf",
         sizeBytes: 2048,
+        ownerId: "00000000-0000-0000-0000-000000001001",
       });
 
       expect(res.uploadUrl).toBeDefined();
-      expect(createdPath).toMatch(/^complaints\/temp\/[0-9a-f-]{36}-passwd\.pdf$/);
+      expect(createdPath).toMatch(/^complaints\/temp\/00000000-0000-0000-0000-000000001001\/[0-9a-f-]{36}-passwd\.pdf$/);
       expect(createdPath).not.toContain("../");
     });
   });

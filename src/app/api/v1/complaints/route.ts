@@ -3,6 +3,8 @@ import { getContainer } from "@/infrastructure/container";
 import { SubmitComplaintSchema } from "@/presentation/schemas/complaintSchemas";
 import { createSuccessResponse } from "@/presentation/utils/apiResponse";
 import { handleApiError } from "@/presentation/utils/errorHandler";
+import { AuthorizationError, ValidationError } from "@/shared/errors/AppError";
+import { UserRole } from "@/domain/complaint";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +12,9 @@ export async function POST(request: NextRequest) {
   try {
     const container = await getContainer();
     const actor = await container.authAdapter.authenticate(request);
+    if (actor.role !== UserRole.ROLE_STUDENT) {
+      throw new AuthorizationError("Only student accounts may submit initial complaints.");
+    }
 
     const idempotencyKey =
       request.headers.get("idempotency-key") ||
@@ -18,6 +23,32 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const validated = SubmitComplaintSchema.parse(body);
+
+    const routing = await container.db.query<{ id: string }>(
+      `SELECT c.id
+       FROM categories c
+       JOIN departments d ON d.id = c.default_department_id
+       WHERE c.id = $1 AND c.default_department_id = $2
+         AND c.is_active = TRUE AND d.is_active = TRUE
+       LIMIT 1;`,
+      [validated.categoryId, validated.departmentId]
+    );
+    if (routing.rows.length === 0) {
+      throw new ValidationError("The selected department does not match the active routing configured for this category.");
+    }
+
+    const attachments = validated.attachments ?? [];
+    for (const attachment of attachments) {
+      const isUploaded = await container.storageAdapter.verifyUploadedFile({
+        ownerId: actor.userId,
+        fileKey: attachment.fileKey,
+        contentType: attachment.mimeType,
+        sizeBytes: attachment.fileSizeBytes,
+      });
+      if (!isUploaded) {
+        throw new ValidationError(`The uploaded evidence file "${attachment.originalFilename}" could not be verified. Upload it again before submitting.`);
+      }
+    }
 
     const result = await container.submitComplaintUseCase.execute({
       complainantId: actor.userId,
@@ -28,6 +59,7 @@ export async function POST(request: NextRequest) {
       locationDetails: validated.locationDetails,
       locationId: validated.locationId,
       suggestedPriority: validated.suggestedPriority,
+      attachments,
       idempotencyKey,
     });
 

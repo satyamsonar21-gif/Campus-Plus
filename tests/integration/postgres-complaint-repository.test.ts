@@ -24,7 +24,7 @@ describe("Phase 06 PostgresComplaintRepository Transactional Persistence Suite",
 
   it("persists aggregate, child entities, audit logs, and outbox events atomically", async () => {
     const db = await getDatabaseClient();
-    const repo = new PostgresComplaintRepository(db);
+    const repo = new PostgresComplaintRepository(db, executeTransaction);
 
     const complaintResult = Complaint.create({
       refId: "CP-2026-09999",
@@ -41,7 +41,12 @@ describe("Phase 06 PostgresComplaintRepository Transactional Persistence Suite",
     const complaint = complaintResult.value;
 
     // 1. Initial Save
-    await repo.save(complaint);
+    await repo.save(complaint, undefined, [{
+      fileKey: `complaints/temp/${FIXTURES.studentA}/evidence.png`,
+      originalFilename: "evidence.png",
+      mimeType: "image/png",
+      fileSizeBytes: 4096,
+    }]);
 
     // Verify aggregate row exists
     const dbComplaint = await repo.findById(complaint.id);
@@ -65,6 +70,15 @@ describe("Phase 06 PostgresComplaintRepository Transactional Persistence Suite",
     expect(outboxRes.rows.length).toBeGreaterThan(0);
     expect(outboxRes.rows[0].event_type).toBe("COMPLAINT_SUBMITTED");
     expect(outboxRes.rows[0].status).toBe("PENDING");
+
+    const attachmentRes = await db.query<{ storage_key: string; uploaded_by_id: string }>(
+      "SELECT storage_key, uploaded_by_id FROM attachments WHERE complaint_id = $1;",
+      [complaint.id.toString()]
+    );
+    expect(attachmentRes.rows).toEqual([{
+      storage_key: `complaints/temp/${FIXTURES.studentA}/evidence.png`,
+      uploaded_by_id: FIXTURES.studentA,
+    }]);
 
     // 2. Perform state transition: Review -> Assign -> Resolve
     const hodActor: ActorContext = {

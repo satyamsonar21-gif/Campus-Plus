@@ -18,7 +18,7 @@ import {
   Resolution,
   StaleVersionConflictError,
 } from "@/domain/complaint";
-import { IComplaintRepository } from "@/application/ports/IComplaintRepository";
+import { ComplaintAttachmentInput, IComplaintRepository } from "@/application/ports/IComplaintRepository";
 import { IComplaintQueryRepository } from "@/application/ports/IComplaintQueryRepository";
 import { DatabaseQueryInterface } from "./migrator";
 
@@ -142,7 +142,10 @@ export interface TimelineEventRow {
  * transactional audit logging (action_history), and transactional outbox event publishing.
  */
 export class PostgresComplaintRepository implements IComplaintRepository, IComplaintQueryRepository {
-  constructor(private readonly db: DatabaseQueryInterface) {}
+  constructor(
+    private readonly db: DatabaseQueryInterface,
+    private readonly transactionRunner?: <T>(callback: (tx: DatabaseQueryInterface) => Promise<T>) => Promise<T>
+  ) {}
 
   public async findById(id: ComplaintId): Promise<Complaint | null> {
     const res = await this.db.query<ComplaintRow>(
@@ -162,7 +165,26 @@ export class PostgresComplaintRepository implements IComplaintRepository, ICompl
     return await this.rehydrateComplaint(res.rows[0]);
   }
 
-  public async save(complaint: Complaint, expectedVersion?: number): Promise<void> {
+  public async save(
+    complaint: Complaint,
+    expectedVersion?: number,
+    attachments: ComplaintAttachmentInput[] = []
+  ): Promise<void> {
+    if (this.transactionRunner) {
+      await this.transactionRunner(async (tx) => {
+        await new PostgresComplaintRepository(tx).persist(complaint, expectedVersion, attachments);
+      });
+      return;
+    }
+
+    await this.persist(complaint, expectedVersion, attachments);
+  }
+
+  private async persist(
+    complaint: Complaint,
+    expectedVersion?: number,
+    attachments: ComplaintAttachmentInput[] = []
+  ): Promise<void> {
     const complaintId = complaint.id.toString();
 
     // 1. Check existing record for OCC verification
@@ -172,6 +194,10 @@ export class PostgresComplaintRepository implements IComplaintRepository, ICompl
     );
 
     const isNew = existingRes.rows.length === 0;
+
+    if (attachments.length > 0 && !isNew) {
+      throw new Error("Initial complaint evidence can only be attached during complaint creation.");
+    }
 
     if (!isNew && expectedVersion !== undefined) {
       const currentDbVersion = existingRes.rows[0].version;
@@ -216,6 +242,22 @@ export class PostgresComplaintRepository implements IComplaintRepository, ICompl
           complaint.updatedAt,
         ]
       );
+      for (const attachment of attachments) {
+        await this.db.query(
+          `INSERT INTO attachments (
+            complaint_id, storage_key, original_filename, mime_type, file_size_bytes,
+            attachment_type, uploaded_by_id
+          ) VALUES ($1, $2, $3, $4, $5, 'INITIAL_EVIDENCE', $6);`,
+          [
+            complaintId,
+            attachment.fileKey,
+            attachment.originalFilename,
+            attachment.mimeType,
+            attachment.fileSizeBytes,
+            complaint.complainantId.toString(),
+          ]
+        );
+      }
     } else {
       // 3. Update existing complaint with version check
       await this.db.query(

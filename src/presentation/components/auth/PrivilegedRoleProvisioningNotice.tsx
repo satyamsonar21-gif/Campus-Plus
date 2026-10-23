@@ -87,7 +87,7 @@ export function PrivilegedRoleProvisioningNotice({
           Next Steps for Personnel
         </h4>
         <p className="text-xs text-slate-600 leading-relaxed">
-          If you are an authorized staff member, department head, or director who already has institutional credentials, please proceed directly to sign in.
+          No account request is submitted from this page. If you already have institutional credentials, sign in. Otherwise contact Campus IT to request administrator-managed provisioning.
         </p>
         <div className="pt-1 flex flex-col sm:flex-row gap-3">
           <Link

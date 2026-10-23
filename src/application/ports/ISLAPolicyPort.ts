@@ -10,5 +10,5 @@ export interface ISLAPolicyPort {
     categoryId: CategoryId,
     priority: Priority,
     createdAt: Date
-  ): Promise<Date>;
+  ): Promise<Date | null>;
 }

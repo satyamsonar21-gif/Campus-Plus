@@ -41,10 +41,4 @@ INSERT INTO working_calendars (id, name, timezone, work_start_time, work_end_tim
 ('00000000-0000-0000-0000-000000000301', 'Main Academic Calendar', 'Asia/Kolkata', '09:00:00', '17:00:00', 62)
 ON CONFLICT (name) DO NOTHING;
 
--- 6. Default SLA Policies
-INSERT INTO sla_policies (id, category_id, priority, response_threshold_hours, resolution_threshold_hours, escalation_target_tier) VALUES
-('00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000000101', 'LOW', 48, 168, 'TIER_2_DEPARTMENT_HEAD'),
-('00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000000101', 'MEDIUM', 24, 72, 'TIER_2_DEPARTMENT_HEAD'),
-('00000000-0000-0000-0000-000000000403', '00000000-0000-0000-0000-000000000101', 'HIGH', 12, 24, 'TIER_3_MANAGEMENT'),
-('00000000-0000-0000-0000-000000000404', '00000000-0000-0000-0000-000000000101', 'URGENT', 4, 12, 'TIER_3_MANAGEMENT')
-ON CONFLICT (category_id, priority) DO NOTHING;
+-- SLA thresholds are institution-specific policy and must be configured by an authorized administrator.

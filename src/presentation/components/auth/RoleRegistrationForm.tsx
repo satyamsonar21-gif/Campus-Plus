@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { PersonaConfig, RegistrationState } from "./authTypes";
 import { PasswordField } from "./PasswordField";
 import { AlertBanner } from "@/presentation/components/feedback/AlertBanner";
+import { getBrowserSupabaseClient } from "@/presentation/context/AuthContext";
+import { apiClient, DepartmentReferenceData } from "@/presentation/services/apiClient";
+import { PrivilegedRoleProvisioningNotice } from "./PrivilegedRoleProvisioningNotice";
 
 export interface RoleRegistrationFormProps {
   personaConfig: PersonaConfig;
@@ -22,6 +25,9 @@ export function RoleRegistrationForm({
   const [email, setEmail] = useState("");
   const [identifier, setIdentifier] = useState(""); // Maps to users.roll_or_prn
   const [department, setDepartment] = useState(""); // Maps to department_memberships.department_id
+  const [departments, setDepartments] = useState<DepartmentReferenceData[]>([]);
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
+  const [departmentLoadError, setDepartmentLoadError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -32,41 +38,28 @@ export function RoleRegistrationForm({
 
   const isPrivileged = personaId !== "student";
 
-  // Protocol tracking codes per persona
-  const protocolCode = {
-    student: "IAM-REG-PENDING",
-    handler: "IAM-STAFF-PENDING",
-    hod: "IAM-HOD-PENDING",
-    director: "IAM-DIR-PENDING",
-    management: "IAM-MGT-PENDING",
-  }[personaId];
+  useEffect(() => {
+    let isMounted = true;
+    apiClient.getReferenceData()
+      .then((referenceData) => {
+        if (!isMounted) return;
+        setDepartments(referenceData.departments);
+      })
+      .catch((error: unknown) => {
+        if (isMounted) {
+          setDepartmentLoadError(error instanceof Error ? error.message : "Could not load academic departments.");
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingDepartments(false);
+      });
+    return () => { isMounted = false; };
+  }, []);
 
-  // Dynamic field labels tailored per persona
-  const identifierLabel = {
-    student: "Student Roll / ID Number",
-    handler: "Faculty / Staff ID Number",
-    hod: "Official Faculty / Staff ID",
-    director: "Directorate Authority ID",
-    management: "Institutional Officer / Trustee ID",
-  }[personaId];
+  const identifierLabel = "Student Roll / ID Number";
+  const identifierPlaceholder = "e.g. 23011045";
 
-  const identifierPlaceholder = {
-    student: "e.g. 23011045",
-    handler: "e.g. FAC-IT-402",
-    hod: "e.g. HOD-COMP-101",
-    director: "e.g. DIR-SEC-001",
-    management: "e.g. GOV-BRD-004",
-  }[personaId];
-
-  const submitButtonLabel = {
-    student: "Submit Student Enrollment Request",
-    handler: "Submit Faculty Onboarding Request",
-    hod: "Submit HOD Appointment Verification Request",
-    director: "Submit Directorate Verification Inquiry",
-    management: "Submit Board Governance Verification Request",
-  }[personaId];
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
 
@@ -89,8 +82,13 @@ export function RoleRegistrationForm({
       setRegistrationState("VALIDATION_ERROR");
       return;
     }
-    if ((personaId === "student" || personaId === "handler" || personaId === "hod") && !department) {
+    if (!department) {
       setValidationError("Please select your academic or operational department.");
+      setRegistrationState("VALIDATION_ERROR");
+      return;
+    }
+    if (isLoadingDepartments || !departments.some((item) => item.id === department)) {
+      setValidationError("Select an active department from the current institutional directory.");
       setRegistrationState("VALIDATION_ERROR");
       return;
     }
@@ -111,11 +109,44 @@ export function RoleRegistrationForm({
     }
 
     setRegistrationState("SUBMITTING");
+    const client = getBrowserSupabaseClient();
+    if (!client) {
+      setValidationError("Supabase sign-up is not configured. Please contact the campus administrator.");
+      setRegistrationState("SERVER_ERROR");
+      return;
+    }
 
-    // Truthful institutional intake simulation (zero fake db writes per Rule 13 & 33)
-    setTimeout(() => {
-      setRegistrationState(isPrivileged ? "INSTITUTIONAL_VERIFICATION_REQUIRED" : "PENDING_VERIFICATION");
-    }, 600);
+    try {
+      const { data, error } = await client.auth.signUp({
+        email: trimmedEmail,
+        password,
+        options: {
+          data: {
+            full_name: trimmedName,
+            roll_or_prn: trimmedId,
+            department_id: department,
+          },
+        },
+      });
+
+      if (error) {
+        setValidationError(error.message);
+        setRegistrationState(/already registered|already exists/i.test(error.message)
+          ? "EMAIL_ALREADY_REGISTERED"
+          : "SERVER_ERROR");
+        return;
+      }
+      if (!data.user) {
+        setValidationError("Supabase did not create an account. Please try again.");
+        setRegistrationState("SERVER_ERROR");
+        return;
+      }
+
+      setRegistrationState(data.session ? "SUCCESS" : "PENDING_VERIFICATION");
+    } catch (error: unknown) {
+      setValidationError(error instanceof Error ? error.message : "Student registration failed. Please try again.");
+      setRegistrationState("SERVER_ERROR");
+    }
   };
 
   const handleReset = () => {
@@ -133,10 +164,7 @@ export function RoleRegistrationForm({
   // -------------------------------------------------------------
   // Submitted State: Truthful Institutional Intake Confirmation
   // -------------------------------------------------------------
-  if (
-    registrationState === "PENDING_VERIFICATION" ||
-    registrationState === "INSTITUTIONAL_VERIFICATION_REQUIRED"
-  ) {
+  if (registrationState === "PENDING_VERIFICATION" || registrationState === "SUCCESS") {
     return (
       <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6 lg:p-8 space-y-5 sm:space-y-6 text-center">
         <div
@@ -161,13 +189,17 @@ export function RoleRegistrationForm({
             }}
             className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border uppercase tracking-wider"
           >
-            Institutional Verification Required
+            {registrationState === "PENDING_VERIFICATION" ? "Email Verification Required" : "Account Created"}
           </span>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-            Account Request Submitted
+            {registrationState === "PENDING_VERIFICATION" ? "Check your email to activate your account" : "Your student account is active"}
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-            Your account intake request for <strong className="text-slate-800">{fullName}</strong> ({identifier}) has been recorded for institutional verification under protocol <strong className="text-slate-900">{protocolCode}</strong>.
+            {registrationState === "PENDING_VERIFICATION" ? (
+              <>A student account for <strong className="text-slate-800">{fullName}</strong> has been created. Follow the verification link sent to <strong className="text-slate-800">{email}</strong> before signing in.</>
+            ) : (
+              <>A student account for <strong className="text-slate-800">{fullName}</strong> is active. You can continue to your dashboard.</>
+            )}
           </p>
         </div>
 
@@ -177,42 +209,15 @@ export function RoleRegistrationForm({
             <svg className="h-4 w-4 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
-            <span>Institutional Provisioning Required</span>
+            <span>Student Account Access</span>
           </div>
           <p className="text-[11px] text-slate-600 leading-relaxed">
-            Campus Plus enforces server-authoritative institutional provisioning. Newly submitted credentials cannot be used for signing in until your enrollment or appointment is validated and provisioned in the campus directory.
+            Your account uses the Student role. Staff and administrator roles can only be granted by an authorized institutional administrator.
           </p>
           <ul className="list-disc list-inside space-y-1.5 text-[11px] text-slate-600 pt-1 border-t border-slate-200/60">
-            {personaId === "student" && (
-              <>
-                <li>Student roster validation will be processed by the Academic Registrar Office.</li>
-                <li>An official activation confirmation will be dispatched to <span className="font-semibold text-slate-800">{email}</span>.</li>
-              </>
-            )}
-            {personaId === "handler" && (
-              <>
-                <li>Faculty complainant status is standard; operational Handler capabilities require Registrar department authorization.</li>
-                <li>Your request has been routed to the Departmental Coordinator and Registrar Office for assignment.</li>
-              </>
-            )}
-            {personaId === "hod" && (
-              <>
-                <li>Department Head authority is strictly bound to verified departmental appointments in the institutional directory.</li>
-                <li>Your appointment verification request has been queued for Academic Dean and Directorate confirmation.</li>
-              </>
-            )}
-            {personaId === "director" && (
-              <>
-                <li>Senior Authority credentials require cryptographic issuance from the Directorate Security Office.</li>
-                <li>Self-service privilege assignment is prohibited. Directorate IT will confirm authority issuance.</li>
-              </>
-            )}
-            {personaId === "management" && (
-              <>
-                <li>Governing Board and Executive Management accounts require direct Board Secretariat validation.</li>
-                <li>Your verification inquiry has been securely transmitted for Secretariat review.</li>
-              </>
-            )}
+            <li>Only Student access is created by public sign-up.</li>
+            <li>Verify the email address before signing in.</li>
+            <li>Institutional staff access must be provisioned by an authorized administrator.</li>
           </ul>
         </div>
 
@@ -232,17 +237,26 @@ export function RoleRegistrationForm({
             onClick={handleReset}
             className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
           >
-            Submit Another Intake Request
+            Create Another Student Account
           </button>
         </div>
 
         <div className="pt-2 border-t border-slate-100 text-center text-xs text-slate-500">
-          <span>Already have an active, pre-provisioned institutional account? </span>
-          <Link href="/login" className="font-semibold text-blue-600 hover:underline">
-            Sign In &rarr;
+          <span>{registrationState === "SUCCESS" ? "Your student account is active. " : "Already have an account? "}</span>
+          <Link href={registrationState === "SUCCESS" ? "/dashboard" : "/login"} className="font-semibold text-blue-600 hover:underline">
+            {registrationState === "SUCCESS" ? "Open dashboard" : "Sign In"} &rarr;
           </Link>
         </div>
       </div>
+    );
+  }
+
+  if (isPrivileged) {
+    return (
+      <PrivilegedRoleProvisioningNotice
+        personaConfig={personaConfig}
+        onChangeRole={onChangeRole ?? (() => undefined)}
+      />
     );
   }
 
@@ -258,7 +272,7 @@ export function RoleRegistrationForm({
             {badgeLabel} Enrollment
           </span>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-0.5">
-            {personaId === "student" ? "Create Student Account" : `${label} Onboarding`}
+            Create Student Account
           </h2>
         </div>
 
@@ -288,16 +302,16 @@ export function RoleRegistrationForm({
         <p className="text-[11px] leading-relaxed" style={{ color: palette.text }}>
           {personaConfig.detailedDescription}
         </p>
-        {isPrivileged && (
-          <p className="text-[10px] text-slate-500 font-medium pt-1 border-t border-slate-200/50">
-            * Privileged credentials require institutional verification before elevated dashboard access is activated.
-          </p>
-        )}
       </div>
 
       {validationError && (
-        <AlertBanner variant="error" title="Validation Error">
+        <AlertBanner variant="error" title={registrationState === "EMAIL_ALREADY_REGISTERED" ? "Email already registered" : "Registration error"}>
           {validationError}
+        </AlertBanner>
+      )}
+      {departmentLoadError && (
+        <AlertBanner variant="error" title="Department directory unavailable">
+          {departmentLoadError}
         </AlertBanner>
       )}
 
@@ -335,41 +349,24 @@ export function RoleRegistrationForm({
             />
           </div>
 
-          {(personaId === "student" || personaId === "handler" || personaId === "hod") ? (
-            <div className="space-y-1.5">
-              <label htmlFor="reg-department" className="block text-xs font-semibold text-slate-700">
-                Academic Department
-              </label>
-              <select
-                id="reg-department"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                required
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 shadow-2xs transition-colors focus:border-slate-500 focus:outline-hidden focus:ring-2 focus:ring-slate-200"
-              >
-                <option value="">Select Academic Department</option>
-                <option value="Information Technology">Information Technology</option>
-                <option value="Computer Engineering">Computer Engineering</option>
-                <option value="Electronics & Telecommunication">Electronics & Telecommunication</option>
-                <option value="Mechanical Engineering">Mechanical Engineering</option>
-                <option value="Civil Engineering">Civil Engineering</option>
-                <option value="Electrical Engineering">Electrical Engineering</option>
-                <option value="Applied Sciences">Applied Sciences</option>
-              </select>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700">
-                Institutional Scope
-              </label>
-              <input
-                type="text"
-                readOnly
-                value={personaId === "director" ? "Campus-Wide Directorate Purview" : "Governing Board Institutional Purview"}
-                className="block w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs sm:text-sm text-slate-600 shadow-2xs cursor-not-allowed"
-              />
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <label htmlFor="reg-department" className="block text-xs font-semibold text-slate-700">
+              Academic Department
+            </label>
+            <select
+              id="reg-department"
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              required
+              disabled={isLoadingDepartments || Boolean(departmentLoadError)}
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 shadow-2xs transition-colors focus:border-slate-500 focus:outline-hidden focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50"
+            >
+              <option value="">{isLoadingDepartments ? "Loading departments…" : "Select Academic Department"}</option>
+              {departments.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Institutional Email */}
@@ -382,7 +379,7 @@ export function RoleRegistrationForm({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder={`${personaId === "student" ? "student" : "staff"}@college.edu`}
+            placeholder="student@college.edu"
             required
             className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 shadow-2xs transition-colors focus:border-slate-500 focus:outline-hidden focus:ring-2 focus:ring-slate-200"
           />
@@ -438,7 +435,7 @@ export function RoleRegistrationForm({
         <div className="pt-2">
           <button
             type="submit"
-            disabled={registrationState === "SUBMITTING"}
+            disabled={registrationState === "SUBMITTING" || isLoadingDepartments || Boolean(departmentLoadError)}
             style={{
               backgroundColor: palette.primary,
               color: palette.actionText,
@@ -451,10 +448,10 @@ export function RoleRegistrationForm({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Processing Institutional Intake...
+                Creating Student Account...
               </span>
             ) : (
-              `${submitButtonLabel} →`
+              "Create Student Account →"
             )}
           </button>
         </div>

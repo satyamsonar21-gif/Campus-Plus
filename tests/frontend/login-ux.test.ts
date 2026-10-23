@@ -5,7 +5,9 @@ import fs from "fs";
 import path from "path";
 
 // Component under test
-import LoginPage, { LoginForm, mapAuthErrorMessage } from "@/app/login/page";
+import LoginPage from "@/app/login/page";
+import { LoginForm } from "@/presentation/components/auth/LoginForm";
+import { mapAuthErrorMessage } from "@/presentation/components/auth/SignInForm";
 
 // Security utility
 import { sanitizeRedirect } from "@/presentation/utils/security";
@@ -57,8 +59,12 @@ describe("Phase 08-C-D: Login Experience UX Quality & Security Verification Suit
   // ==========================================================================
   describe("1. Credential Purity & Zero Hardcoded Accounts", () => {
     it("source file initializes state strictly empty", () => {
-      const sourcePath = path.resolve(process.cwd(), "src/app/login/page.tsx");
+      const sourcePath = path.resolve(process.cwd(), "src/presentation/components/auth/SignInForm.tsx");
       const sourceCode = fs.readFileSync(sourcePath, "utf-8");
+      const routeCode = fs.readFileSync(
+        path.resolve(process.cwd(), "src/app/login/page.tsx"),
+        "utf-8",
+      );
 
       // Verify strict empty useState initialization
       expect(sourceCode).toContain('const [email, setEmail] = useState("");');
@@ -70,6 +76,8 @@ describe("Phase 08-C-D: Login Experience UX Quality & Security Verification Suit
       expect(sourceCode).not.toContain("@gmail.com");
       expect(sourceCode).not.toContain("password123");
       expect(sourceCode).not.toContain("demo@");
+      expect(routeCode).not.toContain("rajesh21");
+      expect(routeCode).not.toContain("password123");
     });
 
     it("rendered login markup contains empty input values by default", () => {

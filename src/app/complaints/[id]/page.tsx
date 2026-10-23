@@ -42,6 +42,7 @@ function ComplaintDetailView({ id }: { id: string }) {
   const [isMutating, setIsMutating] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [isConflictOpen, setIsConflictOpen] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   const validation = validateRouteId(id);
 
@@ -103,6 +104,17 @@ function ComplaintDetailView({ id }: { id: string }) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to load complaint details.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDownloadAttachment = async (attachmentId: string) => {
+    if (!complaint) return;
+    setAttachmentError(null);
+    try {
+      const { downloadUrl } = await apiClient.getComplaintAttachmentDownloadUrl(complaint.id, attachmentId);
+      window.location.assign(downloadUrl);
+    } catch (error) {
+      setAttachmentError(error instanceof Error ? error.message : "Could not open this attachment.");
     }
   };
 
@@ -371,6 +383,25 @@ function ComplaintDetailView({ id }: { id: string }) {
                   </div>
                 </div>
               </Card>
+
+              {(complaint.attachments?.length ?? 0) > 0 && (
+                <Card title="Evidence & Attachments" description="Files are available only to users authorized to view this complaint.">
+                  {attachmentError && <AlertBanner variant="error" title="Attachment unavailable">{attachmentError}</AlertBanner>}
+                  <ul className="space-y-2">
+                    {complaint.attachments?.map((attachment) => (
+                      <li key={attachment.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-800">{attachment.originalFilename}</p>
+                          <p className="text-xs text-slate-500">{attachment.mimeType} · {(attachment.fileSizeBytes / 1024).toFixed(0)} KB</p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => void handleDownloadAttachment(attachment.id)}>
+                          Download
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
 
               {/* Formal Resolution Outcome if Resolved */}
               {complaint.resolution && (
