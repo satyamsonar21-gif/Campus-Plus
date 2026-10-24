@@ -12,24 +12,29 @@ describe("Database Migration & Reproducibility Suite", () => {
     migrator = new DatabaseMigrator(db);
   });
 
-  it("should apply all 11 migrations from an empty database cleanly", async () => {
+  it("should apply all 12 migrations from an empty database cleanly", async () => {
     const result = await migrator.migrate();
-    expect(result.applied.length).toBe(11);
+    expect(result.applied.length).toBe(12);
     expect(result.verified.length).toBe(0);
 
     // Verify _schema_migrations rows
     const res = await db.query("SELECT version, name FROM _schema_migrations ORDER BY version ASC;");
-    expect(res.rows.length).toBe(11);
+    expect(res.rows.length).toBe(12);
 
     // Verify tracking_code_seq created by migration 00010
     const seqRes = await db.query("SELECT nextval('tracking_code_seq') as next_val;");
     expect(Number((seqRes.rows[0] as { next_val: string }).next_val)).toBe(1);
+
+    // Verify authority onboarding tables created by migration 00012
+    const bootstrapRes = await db.query("SELECT id, is_completed FROM system_bootstrap_state WHERE id = 'INITIAL_AUTHORITY_BOOTSTRAP';");
+    expect(bootstrapRes.rows.length).toBe(1);
+    expect((bootstrapRes.rows[0] as { is_completed: boolean }).is_completed).toBe(false);
   });
 
   it("should be idempotent and verify checksums on subsequent runs", async () => {
     const secondRun = await migrator.migrate();
     expect(secondRun.applied.length).toBe(0);
-    expect(secondRun.verified.length).toBe(11);
+    expect(secondRun.verified.length).toBe(12);
   });
 
   it("should successfully apply reference seed and synthetic dev seed", async () => {

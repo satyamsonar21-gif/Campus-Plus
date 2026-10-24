@@ -55,4 +55,41 @@ describe("Database Audit Immutability Suite", () => {
       `)
     ).rejects.toThrow(/SECURITY VIOLATION: action_history is an immutable append-only journal/);
   });
+
+  it("should permit inserting new audit records into authority_audit_logs", async () => {
+    const res = await db.query(`
+      INSERT INTO authority_audit_logs (
+        action_type, actor_role, target_email, target_role, metadata
+      ) VALUES (
+        'BOOTSTRAP_INITIAL_AUTHORITIES',
+        'SYSTEM_OPERATOR',
+        'director@institution.edu',
+        'ROLE_ADMIN',
+        '{"provisioned": true}'::jsonb
+      ) RETURNING id;
+    `);
+
+    expect(res.rows.length).toBe(1);
+    expect((res.rows[0] as { id: string }).id).toBeDefined();
+  });
+
+  it("should strictly BLOCK any UPDATE or DELETE attempt on authority_audit_logs via immutability trigger", async () => {
+    const existing = await db.query("SELECT id FROM authority_audit_logs LIMIT 1;");
+    const auditId = (existing.rows[0] as { id: string }).id;
+
+    await expect(
+      db.query(`
+        UPDATE authority_audit_logs
+        SET target_email = 'tampered@institution.edu'
+        WHERE id = '${auditId}';
+      `)
+    ).rejects.toThrow(/SECURITY VIOLATION: authority_audit_logs is an immutable append-only journal/);
+
+    await expect(
+      db.query(`
+        DELETE FROM authority_audit_logs
+        WHERE id = '${auditId}';
+      `)
+    ).rejects.toThrow(/SECURITY VIOLATION: authority_audit_logs is an immutable append-only journal/);
+  });
 });

@@ -104,15 +104,47 @@ export class AuthenticationAdapter {
     );
 
     if (res.rows.length === 0) {
+      try {
+        const vReq = await this.db.query<{ status: string }>(
+          `SELECT status FROM institutional_verification_requests WHERE user_id = $1 LIMIT 1;`,
+          [resolvedUserId]
+        );
+        if (vReq.rows.length > 0) {
+          if (vReq.rows[0].status === "PENDING") {
+            throw new AuthenticationError("Your institutional onboarding request is currently pending departmental verification.");
+          }
+          if (vReq.rows[0].status === "REJECTED") {
+            throw new AuthenticationError("Your institutional verification request was not approved. Please contact your department head.");
+          }
+        }
+      } catch (err) {
+        if (err instanceof AuthenticationError) throw err;
+        // Table may not exist in minimal mock contexts, continue to standard error
+      }
       throw new AuthenticationError("Authenticated identity does not map to any active user record in institution directory.");
     }
 
     const row = res.rows[0];
     if (!row.is_active) {
+      try {
+        const vReq = await this.db.query<{ status: string }>(
+          `SELECT status FROM institutional_verification_requests WHERE user_id = $1 LIMIT 1;`,
+          [resolvedUserId]
+        );
+        if (vReq.rows.length > 0 && vReq.rows[0].status === "PENDING") {
+          throw new AuthenticationError("Your institutional onboarding request is currently pending departmental verification.");
+        }
+      } catch (err) {
+        if (err instanceof AuthenticationError) throw err;
+      }
       throw new AuthenticationError("User account is deactivated.");
     }
 
-    const role = (row.role_id as UserRoleType) || UserRole.ROLE_STUDENT;
+    if (!row.role_id) {
+      throw new AuthenticationError("Your account is active, but no institutional role has been assigned to your profile.");
+    }
+
+    const role = row.role_id as UserRoleType;
     const departmentId = row.department_id || undefined;
 
     return {
