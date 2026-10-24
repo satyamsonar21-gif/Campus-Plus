@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { ActorContext, UserRole, UserRoleType } from "@/domain/complaint";
+import { ActorContext, UserRoleType } from "@/domain/complaint";
 import { AuthenticationError } from "@/shared/errors/AppError";
 import { DatabaseQueryInterface } from "../database/migrator";
 

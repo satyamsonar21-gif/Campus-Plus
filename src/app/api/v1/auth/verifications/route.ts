@@ -5,7 +5,7 @@ import { handleApiError } from "@/presentation/utils/errorHandler";
 import { createSuccessResponse } from "@/presentation/utils/apiResponse";
 import { requireAuthHeader } from "@/presentation/utils/authGuard";
 import { AuthorizationError } from "@/shared/errors/AppError";
-import { UserRole } from "@/domain/complaint";
+import { UserRole, UserRoleType } from "@/domain/complaint";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +23,12 @@ export async function GET(request: NextRequest) {
     const container = await getContainer();
     const actor = await container.authAdapter.authenticate(request);
 
-    if (
-      ![UserRole.ROLE_ADMIN, UserRole.ROLE_MANAGEMENT, UserRole.ROLE_DEPT_HEAD].includes(
-        actor.role
-      )
-    ) {
+    const allowedRoles: UserRoleType[] = [
+      UserRole.ROLE_ADMIN,
+      UserRole.ROLE_MANAGEMENT,
+      UserRole.ROLE_DEPT_HEAD,
+    ];
+    if (!allowedRoles.includes(actor.role)) {
       throw new AuthorizationError(
         `Role '${actor.role}' is not authorized to review institutional verifications.`
       );

@@ -5,7 +5,7 @@ export class AccountPendingApprovalError extends AppError {
   constructor(message = "Your institutional onboarding request is currently pending departmental verification.") {
     super({
       message,
-      code: "ACCOUNT_PENDING_APPROVAL" as any,
+      code: ErrorCodes.ACCOUNT_PENDING_APPROVAL,
       statusCode: 403,
     });
   }
@@ -15,7 +15,7 @@ export class AccountDeactivatedError extends AppError {
   constructor(message = "Your campus account access has been deactivated or revoked by institutional administration.") {
     super({
       message,
-      code: "ACCOUNT_REVOKED" as any,
+      code: ErrorCodes.ACCOUNT_REVOKED,
       statusCode: 403,
     });
   }
@@ -25,7 +25,7 @@ export class MissingRoleMappingError extends AppError {
   constructor(message = "Your account is active, but no institutional role has been assigned to your profile.") {
     super({
       message,
-      code: "MISSING_ROLE_MAPPING" as any,
+      code: ErrorCodes.MISSING_ROLE_MAPPING,
       statusCode: 403,
     });
   }
@@ -35,7 +35,7 @@ export class IdentityNotMappedError extends AppError {
   constructor(message = "Your authentication credentials are valid, but your institutional profile has not been provisioned in the directory.") {
     super({
       message,
-      code: "IDENTITY_NOT_MAPPED" as any,
+      code: ErrorCodes.IDENTITY_NOT_MAPPED,
       statusCode: 401,
     });
   }
@@ -85,7 +85,7 @@ export class InvitationExpiredError extends AppError {
   constructor(message = "This invitation token has expired. Please contact your institution for a new invitation.") {
     super({
       message,
-      code: "INVITATION_EXPIRED" as any,
+      code: ErrorCodes.INVITATION_EXPIRED,
       statusCode: 410,
     });
   }
@@ -105,7 +105,7 @@ export class InvitationRevokedError extends AppError {
   constructor(message = "This invitation has been revoked by institutional administration.") {
     super({
       message,
-      code: "INVITATION_REVOKED" as any,
+      code: ErrorCodes.INVITATION_REVOKED,
       statusCode: 403,
     });
   }

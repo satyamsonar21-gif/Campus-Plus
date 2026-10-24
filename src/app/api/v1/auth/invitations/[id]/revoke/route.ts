@@ -7,7 +7,7 @@ import { createSuccessResponse } from "@/presentation/utils/apiResponse";
 import { requireAuthHeader } from "@/presentation/utils/authGuard";
 import { AuthorizationError, NotFoundError } from "@/shared/errors/AppError";
 import { DepartmentScopeViolationError } from "@/domain/complaint/DomainErrors";
-import { UserRole } from "@/domain/complaint";
+import { UserRole, UserRoleType } from "@/domain/complaint";
 
 export const dynamic = "force-dynamic";
 
@@ -34,11 +34,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const actor = await container.authAdapter.authenticate(request);
 
     // Only Admin, Management, or HOD can revoke invitations
-    if (
-      ![UserRole.ROLE_ADMIN, UserRole.ROLE_MANAGEMENT, UserRole.ROLE_DEPT_HEAD].includes(
-        actor.role
-      )
-    ) {
+    const allowedRevokeRoles: UserRoleType[] = [
+      UserRole.ROLE_ADMIN,
+      UserRole.ROLE_MANAGEMENT,
+      UserRole.ROLE_DEPT_HEAD,
+    ];
+    if (!allowedRevokeRoles.includes(actor.role)) {
       throw new AuthorizationError(
         `Role '${actor.role}' is not authorized to revoke institutional invitations.`
       );

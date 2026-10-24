@@ -101,6 +101,12 @@ export function PrivilegedRoleProvisioningNotice({
             Sign In with Existing Account &rarr;
           </Link>
           <Link
+            href="/accept-invitation"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-center"
+          >
+            Redeem Institutional Invitation &rarr;
+          </Link>
+          <Link
             href="/help"
             className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-center"
           >

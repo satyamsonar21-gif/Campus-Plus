@@ -21,7 +21,13 @@ const CreateInvitationSchema = z.object({
     "ROLE_HANDLER",
     "ROLE_FACULTY",
   ]),
-  departmentId: z.string().uuid().optional(),
+  departmentId: z
+    .string()
+    .regex(
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+      "Invalid Department UUID format"
+    )
+    .optional(),
   expiresInDays: z.number().int().min(1).max(30).optional().default(7),
 });
 
@@ -29,13 +35,6 @@ const CreateInvitationSchema = z.object({
  * POST /api/v1/auth/invitations
  *
  * Issues a single-use, time-limited, cryptographically hashed institutional invitation.
- *
- * RULES:
- * - Requires authenticated session.
- * - Caller must possess delegated authority to issue target role.
- * - Department Head can only invite within their own department.
- * - Raw token is only returned to caller once; database stores SHA-256 hash.
- * - Audited in authority_audit_logs.
  */
 export async function POST(request: NextRequest) {
   const authDenied = requireAuthHeader(request);
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
     }>(
       `INSERT INTO authority_invitations (
          email, role_id, department_id, token_hash, invited_by, invited_by_role, expires_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, NOW() + ($7 || ' days')::INTERVAL)
+       ) VALUES ($1, $2, $3::uuid, $4, $5, $6, NOW() + ($7 * INTERVAL '1 day'))
        RETURNING id, email, role_id, department_id, expires_at;`,
       [
         validated.email.toLowerCase(),
@@ -89,7 +88,7 @@ export async function POST(request: NextRequest) {
         tokenHash,
         actor.userId,
         actor.role,
-        validated.expiresInDays.toString(),
+        validated.expiresInDays,
       ]
     );
 
@@ -100,7 +99,7 @@ export async function POST(request: NextRequest) {
       `INSERT INTO authority_audit_logs (
          action_type, actor_id, actor_role, target_email, target_role, target_department_id, metadata
        ) VALUES (
-         'INVITATION_CREATED', $1, $2, $3, $4, $5,
+         'INVITATION_CREATED', $1, $2, $3, $4, $5::uuid,
          jsonb_build_object('invitation_id', $6::text, 'expires_at', $7::text)
        );`,
       [

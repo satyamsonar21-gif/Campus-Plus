@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import crypto from "node:crypto";
@@ -22,7 +22,13 @@ const AuthorityItemSchema = z.object({
     "ROLE_DEPT_HEAD",
     "ROLE_HANDLER",
   ]),
-  departmentId: z.string().uuid().optional(),
+  departmentId: z
+    .string()
+    .regex(
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+      "Invalid Department UUID"
+    )
+    .optional(),
   password: z.string().min(8).max(128).optional(),
 });
 
@@ -204,7 +210,7 @@ export async function POST(request: NextRequest) {
         `INSERT INTO authority_audit_logs (
            action_type, actor_role, target_user_id, target_email, target_role, target_department_id, metadata
          ) VALUES (
-           'BOOTSTRAP_INITIAL_AUTHORITIES', 'SYSTEM_OPERATOR', $1, $2, $3, $4,
+           'BOOTSTRAP_INITIAL_AUTHORITIES', 'SYSTEM_OPERATOR', $1, $2, $3, $4::uuid,
            jsonb_build_object('operator_id', $5::text, 'timestamp', NOW())
          );`,
         [userId, auth.email, auth.roleId, auth.departmentId || null, validated.operatorId]
@@ -216,7 +222,7 @@ export async function POST(request: NextRequest) {
     // 5. Permanently lock bootstrap state
     await db.query(
       `INSERT INTO system_bootstrap_state (id, is_completed, completed_at, completed_by_operator, metadata, recovery_lock, updated_at)
-       VALUES ('INITIAL_AUTHORITY_BOOTSTRAP', TRUE, NOW(), $1, jsonb_build_object('provisioned_count', $2), TRUE, NOW())
+       VALUES ('INITIAL_AUTHORITY_BOOTSTRAP', TRUE, NOW(), $1, jsonb_build_object('provisioned_count', $2::int), TRUE, NOW())
        ON CONFLICT (id) DO UPDATE SET
          is_completed = TRUE,
          completed_at = NOW(),

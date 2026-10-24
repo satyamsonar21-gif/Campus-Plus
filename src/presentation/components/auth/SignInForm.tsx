@@ -15,6 +15,9 @@ export type AuthErrorCode =
   | "INVALID_CREDENTIALS"
   | "EMAIL_NOT_CONFIRMED"
   | "ACCOUNT_INACTIVE"
+  | "ACCOUNT_PENDING_APPROVAL"
+  | "VERIFICATION_REJECTED"
+  | "MISSING_ROLE_MAPPING"
   | "IDENTITY_NOT_PROVISIONED"
   | "NETWORK_FAILURE"
   | "SERVER_FAILURE"
@@ -37,7 +40,41 @@ export function parseAuthError(err: unknown): ParsedAuthError {
       };
     }
 
-    // 2. Account Inactive / Disabled
+    // 2. Pending Institutional Approval
+    if (
+      msg.includes("pending departmental verification") ||
+      msg.includes("pending institutional") ||
+      msg.includes("pending verification")
+    ) {
+      return {
+        code: "ACCOUNT_PENDING_APPROVAL",
+        message: "Your institutional onboarding request is currently pending departmental verification.",
+      };
+    }
+
+    // 3. Verification Request Rejected
+    if (
+      msg.includes("verification request was not approved") ||
+      msg.includes("verification rejected")
+    ) {
+      return {
+        code: "VERIFICATION_REJECTED",
+        message: "Your institutional verification request was not approved. Please contact your department head.",
+      };
+    }
+
+    // 4. Missing Role Mapping
+    if (
+      msg.includes("no institutional role has been assigned") ||
+      msg.includes("no campus role has been assigned")
+    ) {
+      return {
+        code: "MISSING_ROLE_MAPPING",
+        message: "Your account is active, but no institutional role has been assigned. Please contact Campus Administration.",
+      };
+    }
+
+    // 5. Account Inactive / Disabled
     if (
       msg.includes("deactivated") ||
       msg.includes("disabled") ||
@@ -50,7 +87,7 @@ export function parseAuthError(err: unknown): ParsedAuthError {
       };
     }
 
-    // 3. Identity Not Provisioned / Missing Role
+    // 6. Identity Not Provisioned / Missing Mapping
     if (
       msg.includes("does not map to any active user record") ||
       msg.includes("not provisioned") ||
@@ -63,7 +100,7 @@ export function parseAuthError(err: unknown): ParsedAuthError {
       };
     }
 
-    // 4. Network Failure
+    // 7. Network Failure
     if (
       msg.includes("network") ||
       msg.includes("failed to fetch") ||
@@ -76,7 +113,7 @@ export function parseAuthError(err: unknown): ParsedAuthError {
       };
     }
 
-    // 5. Server Failure
+    // 8. Server Failure
     if (
       msg.includes("internal server error") ||
       msg.includes("server failure") ||
@@ -89,7 +126,7 @@ export function parseAuthError(err: unknown): ParsedAuthError {
       };
     }
 
-    // 6. Invalid Credentials (password mismatch, user not found, invalid_credentials)
+    // 9. Invalid Credentials (password mismatch, user not found, invalid_credentials)
     if (
       msg.includes("invalid login credentials") ||
       msg.includes("invalid credentials") ||
@@ -108,6 +145,27 @@ export function parseAuthError(err: unknown): ParsedAuthError {
     code: "UNKNOWN_AUTH_FAILURE",
     message: "Unable to verify campus credentials. Please check your details and try again.",
   };
+}
+
+export function getAuthErrorNextStep(code: AuthErrorCode): string | null {
+  switch (code) {
+    case "ACCOUNT_PENDING_APPROVAL":
+      return "Next Step: Your appointment is awaiting verification by your Department Head or Administrator. You will be able to sign in once approved.";
+    case "EMAIL_NOT_CONFIRMED":
+      return "Next Step: Check your inbox and spam folder for the confirmation email, and click the activation link.";
+    case "IDENTITY_NOT_PROVISIONED":
+      return "Next Step: If you are an invited authority or faculty member, please redeem your invitation token, or contact Campus IT to provision your profile.";
+    case "ACCOUNT_INACTIVE":
+      return "Next Step: If you believe this deactivation is in error, please contact your department administrator or Campus IT.";
+    case "MISSING_ROLE_MAPPING":
+      return "Next Step: Please ask Campus Administration to assign your technical role in the institutional registry.";
+    case "VERIFICATION_REJECTED":
+      return "Next Step: Contact your department head or academic affairs office for details regarding your appointment status.";
+    case "INVALID_CREDENTIALS":
+      return "Next Step: Double-check your campus email address and password, or use the password reset link.";
+    default:
+      return null;
+  }
 }
 
 export function mapAuthErrorMessage(err: unknown): string {
@@ -196,8 +254,9 @@ export function SignInForm({ selectedPersona, onSelectPersona }: SignInFormProps
     router.push(targetUrl);
   };
 
-  const displayError =
-    formError || (authError ? mapAuthErrorMessage(new Error(authError)) : null);
+  const parsedError = authError ? parseAuthError(new Error(authError)) : null;
+  const displayError = formError || (parsedError ? parsedError.message : null);
+  const nextStepAdvice = parsedError ? getAuthErrorNextStep(parsedError.code) : null;
 
   return (
     <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 lg:p-10 space-y-6">
@@ -233,10 +292,17 @@ export function SignInForm({ selectedPersona, onSelectPersona }: SignInFormProps
         </AlertBanner>
       )}
 
-      {/* Form Error Banner */}
+      {/* Form Error Banner with Actionable Next-Step Guidance */}
       {!roleMismatch && displayError && (
         <AlertBanner variant="error" title="Authentication Notice">
-          {displayError}
+          <div className="space-y-1.5 text-left">
+            <p>{displayError}</p>
+            {nextStepAdvice && (
+              <p className="text-[11px] font-medium text-red-700/90 pt-1 border-t border-red-200/50">
+                {nextStepAdvice}
+              </p>
+            )}
+          </div>
         </AlertBanner>
       )}
 
