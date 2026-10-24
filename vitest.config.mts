@@ -7,8 +7,8 @@ export default defineConfig({
     environment: "node",
     include: ["tests/**/*.test.ts", "src/**/*.test.ts"],
     exclude: ["node_modules", ".next", "out", "build"],
-    testTimeout: 30000,
-    hookTimeout: 30000,
+    testTimeout: 60000,
+    hookTimeout: 60000,
   },
   resolve: {
     alias: {

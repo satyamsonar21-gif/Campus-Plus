@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { BrandShieldIcon, MailIcon, PhoneIcon } from "./LandingIcons";
 
 export const LandingFooter: React.FC = () => {
@@ -42,8 +43,17 @@ export const LandingFooter: React.FC = () => {
             </div>
           </div>
 
-          {/* Far Right: Copyright */}
+          {/* Far Right: Links & Copyright */}
           <div className="text-center md:text-right">
+            <div className="flex items-center justify-center md:justify-end space-x-3 text-[11px] mb-1">
+              <Link href="/terms" className="text-slate-400 hover:text-white transition-colors">
+                Terms of Use
+              </Link>
+              <span className="text-slate-600">&bull;</span>
+              <Link href="/privacy" className="text-slate-400 hover:text-white transition-colors">
+                Privacy Policy
+              </Link>
+            </div>
             <div className="text-white text-xs font-semibold">&copy; 2025 Campus Plus</div>
             <div className="text-slate-400 text-[10.5px] mt-0.5">All rights reserved.</div>
           </div>

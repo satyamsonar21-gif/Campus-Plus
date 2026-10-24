@@ -1,8 +1,9 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { getContainer } from "@/infrastructure/container";
 import { ResolveComplaintSchema } from "@/presentation/schemas/complaintSchemas";
 import { createSuccessResponse } from "@/presentation/utils/apiResponse";
 import { handleApiError } from "@/presentation/utils/errorHandler";
+import { requireAuthHeader } from "@/presentation/utils/authGuard";
 import { AttachmentSummary } from "@/domain/complaint";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,9 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const authDenied = requireAuthHeader(request);
+  if (authDenied) return authDenied;
+
   try {
     const { id } = await context.params;
     const container = await getContainer();

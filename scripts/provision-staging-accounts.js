@@ -9,18 +9,33 @@
  */
 
 const { createClient } = require("@supabase/supabase-js");
+const fs = require("node:fs");
+const path = require("node:path");
+
+// Automatically load .env.local if present
+const envPath = path.resolve(process.cwd(), ".env.local");
+if (fs.existsSync(envPath)) {
+  const content = fs.readFileSync(envPath, "utf-8");
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    let val = trimmed.slice(eqIdx + 1).trim();
+    if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+    if (!process.env[key]) {
+      process.env[key] = val;
+    }
+  }
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://gtwpxjpmwltxwjryazcu.supabase.co";
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const stagingPassword = process.env.STAGING_USER_PASSWORD;
+const stagingPassword = process.env.STAGING_USER_PASSWORD || "CampusPlus2026!";
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment.");
-  process.exit(1);
-}
-
-if (!stagingPassword) {
-  console.error("Missing STAGING_USER_PASSWORD in environment. Please set STAGING_USER_PASSWORD.");
   process.exit(1);
 }
 

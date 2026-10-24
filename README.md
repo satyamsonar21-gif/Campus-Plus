@@ -122,9 +122,9 @@ Campus Plus includes an unauthenticated, decoupled health check endpoint:
 Campus Plus is production-ready for deployment on **Vercel** paired with **Supabase PostgreSQL 17**.
 
 ### 1. Vercel Configuration & Environment Templates
-- **[`vercel.json`](file:///d:/Deparment%20Project/department%20project/vercel.json)**: Contains build presets, Turbopack scripts, and security headers (HSTS, X-Content-Type-Options, X-Frame-Options, CSP, and Referrer-Policy).
-- **[`.env.vercel.example`](file:///d:/Deparment%20Project/department%20project/.env.vercel.example)**: Comprehensive mapping of all client (`NEXT_PUBLIC_`) and server-only variables for Vercel Project Settings.
-- **Detailed Documentation**: See [**`docs/engineering/infrastructure/VERCEL-ENVIRONMENT-SETUP.md`**](file:///d:/Deparment%20Project/department%20project/docs/engineering/infrastructure/VERCEL-ENVIRONMENT-SETUP.md).
+- **[`vercel.json`](./vercel.json)**: Contains build presets, Turbopack scripts, and security headers (HSTS, CSP, X-Content-Type-Options, X-Frame-Options, and Referrer-Policy).
+- **[`.env.vercel.example`](./.env.vercel.example)**: Comprehensive mapping of all client (`NEXT_PUBLIC_`) and server-only variables for Vercel Project Settings.
+- **Detailed Documentation**: See [**`docs/engineering/infrastructure/VERCEL-ENVIRONMENT-SETUP.md`**](./docs/engineering/infrastructure/VERCEL-ENVIRONMENT-SETUP.md).
 
 ### 2. Required Environment Variables for Vercel
 Configure in **Vercel Dashboard → Project Settings → Environment Variables**:
@@ -160,10 +160,11 @@ vercel --prod
 Campus Plus persists all grievance records, audit logs, and attachments on **Supabase** (PostgreSQL 17):
 
 ### 1. Database & Storage Initialization Scripts
-* [**`scripts/supabase_consolidated_schema.sql`**](file:///d:/Deparment%20Project/department%20project/scripts/supabase_consolidated_schema.sql): Complete transaction-bounded schema provisioning 22 tables, 5 enums, 1 sequence, triggers, indexes, and hardened RLS policies. Run directly in the **Supabase Dashboard SQL Editor**.
-* [**`scripts/supabase_auth_and_storage_setup.sql`**](file:///d:/Deparment%20Project/department%20project/scripts/supabase_auth_and_storage_setup.sql): Creates private storage bucket `campus-plus-attachments`, storage RLS policies, and the `on_auth_user_created` trigger for automatic profile provisioning upon signup.
-* [**`.env.supabase.example`**](file:///d:/Deparment%20Project/department%20project/.env.supabase.example): Environment variable template targeting your Supabase instance.
-* **Detailed Documentation**: See [**`docs/engineering/infrastructure/SUPABASE-ENVIRONMENT-SETUP.md`**](file:///d:/Deparment%20Project/department%20project/docs/engineering/infrastructure/SUPABASE-ENVIRONMENT-SETUP.md).
+* [**`scripts/supabase_consolidated_schema.sql`**](./scripts/supabase_consolidated_schema.sql): Complete transaction-bounded schema provisioning 22 tables, 5 enums, 1 sequence, triggers, indexes, and hardened RLS policies. Run directly in the **Supabase Dashboard SQL Editor**.
+* [**`scripts/supabase_auth_and_storage_setup.sql`**](./scripts/supabase_auth_and_storage_setup.sql): Creates private storage bucket `campus-plus-attachments`, storage RLS policies, and the `on_auth_user_created` trigger for automatic profile provisioning upon signup.
+* [**`scripts/phase_09b_remediation.sql`**](./scripts/phase_09b_remediation.sql): Hardened remediation migration script reconciling analytical views (`WITH (security_invoker = true)`), revoking anonymous access on helper functions, and synchronizing Supabase CLI migration tracking.
+* [**`.env.supabase.example`**](./.env.supabase.example): Environment variable template targeting your Supabase instance.
+* **Detailed Documentation**: See [**`docs/engineering/infrastructure/SUPABASE-ENVIRONMENT-SETUP.md`**](./docs/engineering/infrastructure/SUPABASE-ENVIRONMENT-SETUP.md).
 
 ---
 
@@ -173,16 +174,18 @@ Campus Plus persists all grievance records, audit logs, and attachments on **Sup
 - [x] **Phase 01**: Requirements Engineering & Traceability Matrix (38 MUST Requirements)
 - [x] **Phase 02**: Architecture Definition & Technical Blueprint (12 ADRs)
 - [x] **Phase 03**: Engineering Foundation & Project Initialization
-- [ ] **Phase 04**: Database Modeling, Migrations & Supabase RLS Schema
-- [ ] **Phase 05**: Domain Core & State Machine Implementation
-- [ ] **Phase 06**: Application Services & API Route Handlers
-- [ ] **Phase 07**: Presentation Layer & User Portals
-- [ ] **Phase 08**: Security Hardening, Audit Trail & Role-Based Access Control
-- [ ] **Phase 09**: QA, Performance Benchmarking & E2E Validation
-- [ ] **Phase 10**: Production Deployment & Institutional Readiness
+- [x] **Phase 04**: Database Modeling, Migrations & Supabase RLS Schema (22 Base Tables, 2 Views)
+- [x] **Phase 05**: Domain Core & State Machine Implementation (13 States, Invariants & Result Monad)
+- [x] **Phase 06**: Application Services & API Route Handlers (20 REST Endpoints, Idempotency & OCC)
+- [x] **Phase 07**: Infrastructure, Staging & Supabase Storage Adapter
+- [x] **Phase 08**: Presentation Layer, Five-Role Authentication & Institutional Dashboards
+- [x] **Phase 09**: QA, Security Hardening & Architecture Reconciliation (396 Tests Passing)
+- [ ] **Phase 10**: Institutional Production Go-Live & Pilot Verification
 
 ---
 
-## 7. License & Compliance
+## 9. License & Compliance
 
-Confidential and proprietary software for academic institutions. All rights reserved. Refer to [SECURITY.md](file:///d:/Deparment%20Project/department%20project/SECURITY.md) for vulnerability reporting procedures.
+Institutional and educational software designed for campus complaint and grievance resolution. All rights reserved. Refer to [SECURITY.md](./SECURITY.md) for vulnerability disclosure and reporting procedures.
+
+> **Note on Repository Visibility**: If deploying for a specific institution, ensure the GitHub repository visibility is set to **Private** in GitHub Repository Settings to protect institutional configurations and workflows.

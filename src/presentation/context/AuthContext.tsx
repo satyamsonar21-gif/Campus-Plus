@@ -189,7 +189,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const client = getBrowserSupabaseClient();
-    if (!client) return;
+    if (!client) {
+      queueMicrotask(() => {
+        setAuthState("UNAUTHENTICATED");
+      });
+      return;
+    }
 
     // Initial session check
     client.auth.getSession().then(async ({ data: { session } }) => {

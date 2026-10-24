@@ -35,7 +35,7 @@ export const MetricsBar: React.FC = () => {
   ];
 
   return (
-    <section className="relative -mt-9 sm:-mt-10 z-20 max-w-5xl mx-auto px-4 sm:px-6">
+    <section id="transparency" className="relative -mt-9 sm:-mt-10 z-20 max-w-5xl mx-auto px-4 sm:px-6 scroll-mt-24">
       <div
         className="bg-white rounded-xl sm:rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100/90 px-5 py-4 sm:px-7 sm:py-5"
         aria-label="Institutional Metrics Summary"

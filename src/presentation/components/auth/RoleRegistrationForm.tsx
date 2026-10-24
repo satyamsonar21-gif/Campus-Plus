@@ -149,6 +149,7 @@ export function RoleRegistrationForm({
     }
   };
 
+
   const handleReset = () => {
     setRegistrationState("IDLE");
     setFullName("");

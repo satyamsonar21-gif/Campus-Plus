@@ -408,7 +408,10 @@ CREATE INDEX IF NOT EXISTS idx_internal_notes_complaint ON internal_notes (compl
 -- ------------------------------------------------------------------------------
 -- 11. ANALYTICAL VIEWS
 -- ------------------------------------------------------------------------------
-CREATE OR REPLACE VIEW recurring_complaint_clusters AS
+-- 11. ANALYTICAL VIEWS (SECURITY INVOKER ENABLED)
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE VIEW recurring_complaint_clusters
+WITH (security_invoker = true) AS
 SELECT 
     c.department_id,
     d.name AS department_name,
@@ -431,7 +434,8 @@ GROUP BY
     COALESCE(loc.room_or_area || ', ' || loc.building, c.location_details)
 HAVING COUNT(*) >= 3;
 
-CREATE OR REPLACE VIEW department_sla_performance AS
+CREATE OR REPLACE VIEW department_sla_performance
+WITH (security_invoker = true) AS
 SELECT 
     d.id AS department_id,
     d.name AS department_name,
@@ -442,6 +446,13 @@ SELECT
 FROM departments d
 LEFT JOIN complaints c ON d.id = c.department_id
 GROUP BY d.id, d.name;
+
+-- Analytical view ACLs: Restrict anonymous access; grant to authenticated and service_role
+REVOKE ALL ON recurring_complaint_clusters FROM PUBLIC, anon;
+GRANT SELECT ON recurring_complaint_clusters TO authenticated, service_role;
+
+REVOKE ALL ON department_sla_performance FROM PUBLIC, anon;
+GRANT SELECT ON department_sla_performance TO authenticated, service_role;
 
 -- ------------------------------------------------------------------------------
 -- 12. ROW-LEVEL SECURITY (RLS) POLICIES & HELPER FUNCTIONS
@@ -498,10 +509,10 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- SEC-005 Fix: Restrict stored RPC execute privileges from anonymous roles
-REVOKE EXECUTE ON FUNCTION auth_has_role(VARCHAR) FROM PUBLIC;
+REVOKE ALL ON FUNCTION auth_has_role(VARCHAR) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION auth_has_role(VARCHAR) TO authenticated, service_role;
 
-REVOKE EXECUTE ON FUNCTION auth_user_department_id() FROM PUBLIC;
+REVOKE ALL ON FUNCTION auth_user_department_id() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION auth_user_department_id() TO authenticated, service_role;
 
 -- ENABLE AND FORCE RLS ACROSS ALL 22 BASE TABLES

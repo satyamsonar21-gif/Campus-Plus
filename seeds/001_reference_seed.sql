@@ -5,11 +5,12 @@
 -- 1. System Roles
 INSERT INTO roles (id, description) VALUES
 ('ROLE_STUDENT', 'Enrolled student submitting and tracking grievances'),
+('ROLE_FACULTY', 'Academic faculty member submitting grievances and academic appeals'),
 ('ROLE_HANDLER', 'Staff member assigned to investigate and resolve grievances'),
 ('ROLE_DEPT_HEAD', 'Department head triaging, assigning, and escalating grievances'),
 ('ROLE_MANAGEMENT', 'Executive leadership reviewing institution-wide escalation and analytics'),
 ('ROLE_ADMIN', 'System administrator managing configuration and master metadata')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET description = EXCLUDED.description;
 
 -- 2. Master Departments
 INSERT INTO departments (id, code, name, description, contact_email) VALUES

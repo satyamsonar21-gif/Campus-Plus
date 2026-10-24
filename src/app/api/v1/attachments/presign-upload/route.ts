@@ -5,10 +5,14 @@ import { createSuccessResponse } from "@/presentation/utils/apiResponse";
 import { handleApiError } from "@/presentation/utils/errorHandler";
 import { AuthorizationError } from "@/shared/errors/AppError";
 import { UserRole } from "@/domain/complaint";
+import { requireAuthHeader } from "@/presentation/utils/authGuard";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  const authDenied = requireAuthHeader(request);
+  if (authDenied) return authDenied;
+
   try {
     const container = await getContainer();
     const actor = await container.authAdapter.authenticate(request);

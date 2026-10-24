@@ -45,8 +45,16 @@ class PostgresClientQueryAdapter implements DatabaseQueryInterface {
  */
 export async function getDatabaseClient(): Promise<DatabaseQueryInterface> {
   const dbUrl = process.env.DATABASE_URL;
+  const isProduction = process.env.NODE_ENV === "production";
 
-  // 1. Live PostgreSQL Mode (Supabase / Production / Staging)
+  // 1. Mandatory Production Database Configuration (Fail-Fast Section 10)
+  if (isProduction && (!dbUrl || dbUrl.trim() === "")) {
+    throw new Error(
+      "CRITICAL DATABASE CONFIGURATION ERROR: DATABASE_URL environment variable is mandatory in production mode. Silent fallback to embedded PGlite is strictly forbidden."
+    );
+  }
+
+  // 2. Live PostgreSQL Mode (Supabase / Production / Staging)
   if (dbUrl) {
     if (liveDbPool && initialized) {
       return new PostgresLiveQueryAdapter(liveDbPool);
@@ -62,7 +70,12 @@ export async function getDatabaseClient(): Promise<DatabaseQueryInterface> {
         liveDbPool = new PgPool({
           connectionString: dbUrl,
           ssl: isLocalhost ? false : { rejectUnauthorized: false },
-          connectionTimeoutMillis: 2000,
+          // 8 seconds — tolerates Vercel serverless cold-start + Supabase connection latency.
+          // 2000ms was too aggressive and caused spurious 500s during function warm-up.
+          connectionTimeoutMillis: 8000,
+          // Serverless-appropriate pool limits: each lambda has at most 1 concurrent request.
+          max: 3,
+          idleTimeoutMillis: 30000,
         });
 
         // Test connection with a harmless query (Section 12 verification)
@@ -90,6 +103,12 @@ export async function getDatabaseClient(): Promise<DatabaseQueryInterface> {
   }
 
   // 2. Embedded PGlite Mode (Local Dev & Unit/Offline Testing)
+  if (isProduction) {
+    throw new Error(
+      "CRITICAL SECURITY VIOLATION: Embedded PGlite cannot be initialized in production runtime."
+    );
+  }
+
   if (globalDb && initialized) {
     return globalDb;
   }
@@ -136,13 +155,20 @@ export async function getDatabaseClient(): Promise<DatabaseQueryInterface> {
   return initPromise;
 }
 
+export interface TransactionOptions {
+  actorId?: string;
+  role?: string;
+}
+
 /**
  * Helper to execute a callback within an ACID transactional context.
  * In live PostgreSQL, checks out a dedicated client from pool with BEGIN/COMMIT/ROLLBACK.
  * In PGlite, uses transaction or BEGIN/COMMIT/ROLLBACK.
+ * Supports transaction-scoped JWT identity context propagation (Option A ADR).
  */
 export async function executeTransaction<T>(
-  callback: (tx: DatabaseQueryInterface) => Promise<T>
+  callback: (tx: DatabaseQueryInterface) => Promise<T>,
+  options?: TransactionOptions
 ): Promise<T> {
   const dbUrl = process.env.DATABASE_URL;
 
@@ -151,6 +177,11 @@ export async function executeTransaction<T>(
     const client = await liveDbPool.connect();
     try {
       await client.query("BEGIN;");
+      if (options?.actorId) {
+        // Enforce transaction-local identity context for RLS evaluation
+        await client.query("SELECT set_config('request.jwt.claim.sub', $1, true);", [options.actorId]);
+        await client.query("SELECT set_config('app.current_user_id', $1, true);", [options.actorId]);
+      }
       const txAdapter = new PostgresClientQueryAdapter(client);
       const result = await callback(txAdapter);
       await client.query("COMMIT;");
@@ -168,12 +199,20 @@ export async function executeTransaction<T>(
 
   if (typeof db.transaction === "function") {
     return (await db.transaction(async (tx) => {
+      if (options?.actorId) {
+        await (tx as DatabaseQueryInterface).query("SELECT set_config('request.jwt.claim.sub', $1, true);", [options.actorId]);
+        await (tx as DatabaseQueryInterface).query("SELECT set_config('app.current_user_id', $1, true);", [options.actorId]);
+      }
       return await callback(tx as DatabaseQueryInterface);
     })) as T;
   }
 
   await db.query("BEGIN;");
   try {
+    if (options?.actorId) {
+      await db.query("SELECT set_config('request.jwt.claim.sub', $1, true);", [options.actorId]);
+      await db.query("SELECT set_config('app.current_user_id', $1, true);", [options.actorId]);
+    }
     const result = await callback(db);
     await db.query("COMMIT;");
     return result;

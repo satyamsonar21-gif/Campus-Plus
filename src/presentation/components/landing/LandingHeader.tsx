@@ -52,12 +52,12 @@ export const LandingHeader: React.FC = () => {
           >
             Transparency
           </a>
-          <a
-            href="#help"
+          <Link
+            href="/help"
             className="hover:text-slate-950 transition-colors pb-0.5 border-b-2 border-transparent"
           >
             Help &amp; Support
-          </a>
+          </Link>
         </nav>
 
         {/* Right: Authentication Action Buttons */}
@@ -126,13 +126,13 @@ export const LandingHeader: React.FC = () => {
             >
               Transparency
             </a>
-            <a
-              href="#help"
+            <Link
+              href="/help"
               onClick={() => setIsMobileOpen(false)}
               className="px-3 py-1.5 rounded-md hover:bg-slate-50"
             >
               Help &amp; Support
-            </a>
+            </Link>
           </div>
           <div className="pt-3 border-t border-slate-100 flex flex-col space-y-2">
             <Link

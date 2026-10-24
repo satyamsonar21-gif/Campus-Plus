@@ -37,7 +37,7 @@ describe("Database Migration & Reproducibility Suite", () => {
     await migrator.applySeed(refSeedPath);
 
     const rolesRes = await db.query("SELECT count(*) as count FROM roles;");
-    expect(Number((rolesRes.rows[0] as { count: string }).count)).toBe(5);
+    expect(Number((rolesRes.rows[0] as { count: string }).count)).toBe(6);
 
     const deptsRes = await db.query("SELECT count(*) as count FROM departments;");
     expect(Number((deptsRes.rows[0] as { count: string }).count)).toBe(5);
